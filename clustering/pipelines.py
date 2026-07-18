@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from pathlib import Path
 
 import numpy as np
 from django.db import transaction
@@ -285,23 +286,56 @@ _EMBEDDING_MODEL = None
 _EMBEDDING_MODEL_PATH = None
 
 
+class EmbeddingModelUnavailable(Exception):
+    """Raised when the configured embedding model path doesn't resolve to a real
+    local folder. Deliberately never falls through to a Hugging Face Hub download —
+    a misconfigured path fails clearly and immediately (this is what every caller
+    below turns into a friendly message) rather than silently attempting a network
+    call against huggingface.co for a string that was never meant to be a Hub
+    model id, which previously surfaced as an opaque RepositoryNotFoundError."""
+
+
 def _resolve_model_path(configured_path):
-    """A configured path is tried, in order, as: a folder relative to the project root
-    (e.g. the bundled ./embedding_model), an absolute local folder, or — if neither
-    exists on disk — passed through as-is (a Hugging Face model id, downloaded on
-    first use)."""
+    """A configured path is tried as: a folder relative to the project root (e.g.
+    the bundled ./embedding_model), or an absolute local folder. Raises
+    EmbeddingModelUnavailable if neither exists — see that class's docstring for why
+    there's no Hugging Face Hub fallback."""
     from django.conf import settings
 
     relative = settings.BASE_DIR / configured_path
     if relative.is_dir():
         return str(relative)
-    return configured_path
+    absolute = Path(configured_path)
+    if absolute.is_dir():
+        return str(absolute)
+    raise EmbeddingModelUnavailable(
+        f"No embedding model found at ‘{configured_path}’. Set a valid local "
+        "folder path in Clustering Settings (or Admin › Site Settings) before "
+        "using Generative AI, Ask Correlate, Categorize Tickets, or Possible Duplicates."
+    )
+
+
+def embedding_model_status():
+    """Returns (available: bool, message: str) without raising — message is the
+    resolved local path if available, or a user-facing explanation if not. Used by
+    every view that touches embeddings to guard against attempting the operation at
+    all, and by the Clustering Settings page to show a live status indicator."""
+    from core.models import SiteSettings
+    configured = SiteSettings.load().embedding_model_path or "embedding_model"
+    try:
+        return True, _resolve_model_path(configured)
+    except EmbeddingModelUnavailable as exc:
+        return False, str(exc)
 
 
 def _get_embedding_model():
-    """Loads the sentence-embedding model from whatever path/name is configured in
-    Admin > Site Settings. Defaults to the ./embedding_model folder bundled with this
-    project, so the Generative AI pipeline works with no Hugging Face Hub access."""
+    """Loads the sentence-embedding model from whatever path is configured in
+    Clustering Settings / Admin > Site Settings. Defaults to the ./embedding_model
+    folder bundled with this project, so the Generative AI pipeline works with no
+    Hugging Face Hub access — when that folder isn't present and nothing else is
+    configured, this raises EmbeddingModelUnavailable rather than attempting a
+    network call. Callers are expected to check embedding_model_status() first
+    (or catch EmbeddingModelUnavailable) rather than let this raise unhandled."""
     global _EMBEDDING_MODEL, _EMBEDDING_MODEL_PATH
     from core.models import SiteSettings
     model_path = _resolve_model_path(SiteSettings.load().embedding_model_path or "embedding_model")
@@ -370,7 +404,10 @@ def build_search_index(project, ticket_queryset=None):
     tickets = list(ticket_queryset if ticket_queryset is not None else Ticket.objects.filter(project=project))
     if not tickets:
         return PipelineResult(False, "No tickets to index.")
-    embeddings, _ = _embed_tickets(tickets, project)
+    try:
+        embeddings, _ = _embed_tickets(tickets, project)
+    except EmbeddingModelUnavailable as exc:
+        return PipelineResult(False, str(exc))
     _persist_embeddings(project, tickets, embeddings)
     return PipelineResult(True, f"Indexed {len(tickets)} tickets for search.")
 
@@ -447,7 +484,10 @@ def run_generative_ai(project, ticket_queryset=None, source_description="", gran
     if len(tickets) < MIN_TICKETS_TO_CLUSTER:
         return PipelineResult(False, f"Need at least {MIN_TICKETS_TO_CLUSTER} tickets to cluster — this selection has {len(tickets)}.")
 
-    embeddings, stoplist = _embed_tickets(tickets, project)
+    try:
+        embeddings, stoplist = _embed_tickets(tickets, project)
+    except EmbeddingModelUnavailable as exc:
+        return PipelineResult(False, str(exc))
     _persist_embeddings(project, tickets, embeddings)
 
     clusterer = hdbscan.HDBSCAN(
@@ -479,11 +519,9 @@ def _is_significant_intersection(project_counter):
 
 def _save_global_clusters(engine, tickets, labels, coords_3d, membership_strength, stoplist, granularity, source_description, run_by=None, settings_for_ticket=None):
     """GlobalCluster's equivalent of _save_clusters — same wipe-then-recreate
-    convention, scoped by engine AND run_by (each user's global runs are their own
-    report, not a shared one — see GlobalCluster's ownership model in clustering/
-    views.py) since a global run has no single project to scope by otherwise. Reuses
-    the exact same per-cluster stats computation as the per-project path
-    (_compute_cluster_stats); the only genuinely new thing here is project_count,
+    convention, scoped by engine only since a global run has no single project to
+    scope by. Reuses the exact same per-cluster stats computation as the per-project
+    path (_compute_cluster_stats); the only genuinely new thing here is project_count,
     which is what turns "a cluster" into "a cross-project intersection worth flagging."
 
     `settings_for_ticket` (same per-ticket-project cache the caller already built for
@@ -492,7 +530,7 @@ def _save_global_clusters(engine, tickets, labels, coords_3d, membership_strengt
     """
     from clustering.models import GlobalCluster, GlobalClusterMember
 
-    GlobalCluster.objects.filter(engine=engine, run_by=run_by).delete()
+    GlobalCluster.objects.filter(engine=engine).delete()
 
     computed, recurring_threshold, confidence_threshold = _compute_cluster_stats(
         tickets, labels, membership_strength, stoplist, settings_for_ticket=settings_for_ticket
@@ -618,7 +656,10 @@ def run_global_clustering(engine, project_ids=None, granularity=DEFAULT_GRANULAR
 
         stoplist = build_entity_stoplist(tickets)
         texts = [build_clustering_text(t, stoplist, _settings_for(t)) for t in tickets]
-        model = _get_embedding_model()
+        try:
+            model = _get_embedding_model()
+        except EmbeddingModelUnavailable as exc:
+            return PipelineResult(False, str(exc))
         embeddings = model.encode(texts, show_progress_bar=False, batch_size=32)
         embeddings = normalize(np.asarray(embeddings))
 

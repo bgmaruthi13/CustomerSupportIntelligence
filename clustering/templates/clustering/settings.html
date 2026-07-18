@@ -17,6 +17,32 @@
 <div class="card" style="margin-bottom:20px">
   <div class="card-header">
     <div>
+      <div class="card-title">Embedding Model</div>
+      <div class="card-subtitle">Applies app-wide — powers Generative AI, Ask Correlate, Find Similar Tickets, Categorize Tickets, and Possible Duplicates</div>
+    </div>
+  </div>
+  <div class="card-body pad">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_embedding_path">
+      <div class="form-field">
+        <label>Local folder path</label>
+        <input type="text" name="embedding_model_path" value="{{ embedding_model_path }}" placeholder="embedding_model" style="width:100%;font-family:monospace">
+        <div class="help-text">A folder on disk containing a sentence-transformers model — relative to the app's root folder (e.g. <code>embedding_model</code>) or an absolute path (e.g. <code>D:\models\my-model</code>). Not a Hugging Face Hub model id — this app never reaches out to Hugging Face; the folder must already exist locally.</div>
+      </div>
+      {% if embedding_available %}
+      <div style="font-size:12px;color:var(--green);margin:8px 0 12px">✓ Found — resolved to <code>{{ embedding_status_message }}</code></div>
+      {% else %}
+      <div style="font-size:12px;color:var(--red);margin:8px 0 12px">✗ {{ embedding_status_message }}</div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary">Save Embedding Model Path</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div>
       <div class="card-title">Confidence Scoring</div>
       <div class="card-subtitle">Applies to both engines — a cluster's Confidence % is meant to mean the same thing regardless of which one produced it</div>
     </div>

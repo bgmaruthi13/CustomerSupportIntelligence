@@ -1,3 +1,4 @@
+import json
 import re
 from collections import Counter
 
@@ -15,15 +16,16 @@ from clustering.models import (Cluster, ClusterMember, ClusteringSettings,
                                 DuplicateCandidate, GRANULARITY_CHOICES,
                                 GlobalCluster, GlobalClusterMember, TicketEmbedding)
 from clustering.pipelines import (DEFAULT_GRANULARITY, MIN_TICKETS_TO_CLUSTER,
-                                   _get_embedding_model, _resolve_model_path,
-                                   build_search_index, run_generative_ai,
+                                   EmbeddingModelUnavailable, _get_embedding_model,
+                                   _resolve_model_path, build_search_index,
+                                   embedding_model_status, run_generative_ai,
                                    run_global_clustering, run_traditional_ml,
                                    scan_for_duplicates)
 from clustering.settings_utils import default_settings_for
 from clustering.settings_utils import get_or_default as get_clustering_settings
 from clustering.text_utils import build_clustering_text, build_entity_stoplist
 from core.models import Project
-from core.utils import apply_sort, dumps_for_script, get_current_project
+from core.utils import apply_sort, get_current_project
 from tickets.models import MULTI_VALUE_DELIMITERS, Ticket, UploadBatch
 
 SEARCH_RESULTS_LIMIT = 50
@@ -191,14 +193,14 @@ def cluster_detail(request, pk):
         "members": members,
         "copilot_prompt": _build_copilot_prompt(cluster, members_by_similarity),
         "keyword_list": [k.strip() for k in cluster.keywords.split(",") if k.strip()],
-        "by_month_json": dumps_for_script([
+        "by_month_json": json.dumps([
             {"label": r["bucket"].strftime("%Y-%m") if r["bucket"] else "—", "count": r["count"]} for r in by_month
         ]),
-        "by_week_json": dumps_for_script([
+        "by_week_json": json.dumps([
             {"label": r["bucket"].strftime("%Y-%m-%d") if r["bucket"] else "—", "count": r["count"]} for r in by_week
         ]),
-        "by_country_json": dumps_for_script([{"label": r["country"] or "Unspecified", "count": r["count"]} for r in by_country]),
-        "by_offering_json": dumps_for_script([{"label": k, "count": v} for k, v in offering_counts.most_common(12)]),
+        "by_country_json": json.dumps([{"label": r["country"] or "Unspecified", "count": r["count"]} for r in by_country]),
+        "by_offering_json": json.dumps([{"label": k, "count": v} for k, v in offering_counts.most_common(12)]),
         "sub_clusters": apply_sort(
             request, cluster.sub_clusters.filter(is_noise=False), CLUSTERS_SORT_FIELDS,
             default_field="recurring", default_dir="desc", param_prefix="subclusters",
@@ -421,7 +423,7 @@ def explorer(request):
 
     context.update({
         "engine": engine,
-        "points_json": dumps_for_script(points),
+        "points_json": json.dumps(points),
         "point_count": len(points),
         "total_point_count": total_points,
         "is_sampled": total_points > MAX_EXPLORER_POINTS,
@@ -538,7 +540,10 @@ def classify_text(project, text, top_k=5):
         return None
     if TicketEmbedding.objects.filter(project=project).count() == 0:
         return {"results": [], "summary": None}
-    model = _get_embedding_model()
+    try:
+        model = _get_embedding_model()
+    except EmbeddingModelUnavailable as exc:
+        return {"results": [], "summary": str(exc)}
     query_vec = model.encode([text])[0]
     results, summary = _rank_by_vector(project, query_vec, top_k=top_k)
     return {"results": results, "summary": summary}
@@ -607,8 +612,11 @@ def _queue_suggestions(project, limit=QUEUE_PAGE_LIMIT):
         missing = [t for t in page_tickets if t.id not in embedding_by_ticket]
         if missing:
             from clustering.pipelines import _embed_tickets, _persist_embeddings
-            new_embeddings, _ = _embed_tickets(missing, project)
-            _persist_embeddings(project, missing, new_embeddings)
+            try:
+                new_embeddings, _ = _embed_tickets(missing, project)
+            except EmbeddingModelUnavailable:
+                new_embeddings = []
+            _persist_embeddings(project, missing, new_embeddings) if new_embeddings else None
             for ticket, vec in zip(missing, new_embeddings):
                 embedding_by_ticket[ticket.id] = vec
 
@@ -694,20 +702,18 @@ def search(request):
         messages.success(request, result.message) if result.ran else messages.warning(request, result.message)
         return redirect("clustering:search")
 
-    from core.models import SiteSettings
-
     total_indexed = TicketEmbedding.objects.filter(project=project).count()
     total_tickets = Ticket.objects.filter(project=project).count()
 
-    configured_model_path = _resolve_model_path(SiteSettings.load().embedding_model_path or "embedding_model")
+    model_available, model_path_or_error = embedding_model_status()
     stale_model = (
-        total_indexed > 0
-        and TicketEmbedding.objects.filter(project=project).exclude(model_path=configured_model_path).exists()
+        model_available and total_indexed > 0
+        and TicketEmbedding.objects.filter(project=project).exclude(model_path=model_path_or_error).exists()
     )
 
     query = request.GET.get("q", "").strip()
     results, summary = (None, None)
-    if query and total_indexed and not stale_model:
+    if query and total_indexed and not stale_model and model_available:
         results, summary = _run_search(project, query)
         if results:
             results = _sort_search_results(request, results)
@@ -721,6 +727,7 @@ def search(request):
         "needs_index": total_indexed == 0,
         "index_stale_count": max(0, total_tickets - total_indexed) if total_indexed else 0,
         "stale_model": stale_model,
+        "embedding_unavailable": None if model_available else model_path_or_error,
     })
     return render(request, "clustering/search.html", context)
 
@@ -737,7 +744,11 @@ def similar_tickets(request, ticket_id):
     embedding_row = TicketEmbedding.objects.filter(ticket=ticket).first()
     if embedding_row is None:
         from clustering.pipelines import _embed_tickets, _persist_embeddings
-        embeddings, _ = _embed_tickets([ticket], project)
+        try:
+            embeddings, _ = _embed_tickets([ticket], project)
+        except EmbeddingModelUnavailable as exc:
+            messages.error(request, str(exc))
+            return redirect("clustering:detail", pk=ticket.cluster_memberships.first().cluster_id) if ticket.cluster_memberships.exists() else redirect("clustering:list")
         _persist_embeddings(project, [ticket], embeddings)
         embedding_row = TicketEmbedding.objects.get(ticket=ticket)
 
@@ -839,9 +850,7 @@ def global_clustering(request):
     clustering could surface. Scoped to the current user's own projects, same
     ownership model the Projects page already uses (Project.objects.filter(
     owner=request.user)) — this is a reporting view over the projects you have, not a
-    break of that ownership boundary. GlobalCluster rows are correspondingly scoped
-    by run_by=request.user throughout, since the underlying model has no project FK
-    to filter on directly (see GlobalCluster docstring)."""
+    break of that ownership boundary."""
     projects = Project.objects.filter(owner=request.user).order_by("name")
 
     if request.method == "POST":
@@ -859,10 +868,10 @@ def global_clustering(request):
         return redirect(f"{reverse('clustering:global_clustering')}?engine={engine}")
 
     engine = request.GET.get("engine", "traditional_ml")
-    clusters_qs = GlobalCluster.objects.filter(engine=engine, is_noise=False, run_by=request.user)
+    clusters_qs = GlobalCluster.objects.filter(engine=engine, is_noise=False)
     clusters_qs = apply_sort(request, clusters_qs, GLOBAL_CLUSTERS_SORT_FIELDS, default_field="projects", default_dir="desc")
     intersections = clusters_qs.filter(is_significant_intersection=True)
-    last_run = GlobalCluster.objects.filter(engine=engine, run_by=request.user).order_by("-run_at").first()
+    last_run = GlobalCluster.objects.filter(engine=engine).order_by("-run_at").first()
 
     intersection_data = []
     for cluster in intersections:
@@ -907,7 +916,7 @@ def global_cluster_detail(request, pk):
     (clustering:list), which has no way to show a GlobalCluster's members at all —
     they're a different model, spanning multiple projects, that clustering:list never
     queries. This shows the cluster's own composition instead."""
-    cluster = get_object_or_404(GlobalCluster, id=pk, run_by=request.user)
+    cluster = get_object_or_404(GlobalCluster, id=pk)
     members = apply_sort(
         request,
         GlobalClusterMember.objects.filter(cluster=cluster).select_related("ticket", "project"),
@@ -941,7 +950,7 @@ def global_explorer(request):
     import random
 
     engine = request.GET.get("engine", "traditional_ml")
-    base_qs = GlobalClusterMember.objects.filter(cluster__engine=engine, cluster__run_by=request.user)
+    base_qs = GlobalClusterMember.objects.filter(cluster__engine=engine)
     total_points = base_qs.count()
 
     if total_points > MAX_EXPLORER_POINTS:
@@ -973,7 +982,7 @@ def global_explorer(request):
     context = {
         "active_nav": "global-clustering",
         "engine": engine,
-        "points_json": dumps_for_script(points),
+        "points_json": json.dumps(points),
         "point_count": len(points),
         "total_point_count": total_points,
         "is_sampled": total_points > MAX_EXPLORER_POINTS,
@@ -1095,6 +1104,18 @@ def clustering_settings(request):
     if request.method == "POST":
         engine = request.POST.get("engine")
         action = request.POST.get("action")
+        if action == "save_embedding_path":
+            from core.models import SiteSettings
+            new_path = request.POST.get("embedding_model_path", "").strip()
+            site_settings = SiteSettings.load()
+            site_settings.embedding_model_path = new_path
+            site_settings.save(update_fields=["embedding_model_path"])
+            available, path_or_error = embedding_model_status()
+            if available:
+                messages.success(request, f"Saved — embedding model resolved at ‘{path_or_error}’.")
+            else:
+                messages.error(request, f"Saved, but this path doesn't resolve to a real folder: {path_or_error}")
+            return redirect(f"{reverse('clustering:settings')}?tab={tab}")
         if action == "save_confidence":
             try:
                 project.confidence_weight_size = max(0.0, float(request.POST.get("confidence_weight_size", 40)))
@@ -1146,6 +1167,9 @@ def clustering_settings(request):
     ml_settings = submitted_settings if submitted_engine == "traditional_ml" else get_clustering_settings(project, "traditional_ml")
     genai_settings = submitted_settings if submitted_engine == "generative_ai" else get_clustering_settings(project, "generative_ai")
 
+    from core.models import SiteSettings
+    embedding_available, embedding_path_or_error = embedding_model_status()
+
     context.update({
         "tab": tab,
         "source_field_choices": SOURCE_FIELD_CHOICES,
@@ -1157,5 +1181,8 @@ def clustering_settings(request):
         "genai_ticket_id_text": _patterns_to_lines(genai_settings.ticket_id_patterns),
         "preview": preview if submitted_engine == tab else None,
         "preview_engine": submitted_engine,
+        "embedding_model_path": SiteSettings.load().embedding_model_path,
+        "embedding_available": embedding_available,
+        "embedding_status_message": embedding_path_or_error,
     })
     return render(request, "clustering/settings.html", context)
