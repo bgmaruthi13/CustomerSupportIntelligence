@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">AI-Driven Problem Management — {{ project.name }}</div>
+    <div class="page-subtitle">Correlates Incidents, Requests, Changes and Production Issues, detects recurring patterns, and recommends Problem Records — built on two interchangeable engines: Traditional ML and Generative AI.</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a class="btn btn-teal" href="{% url 'clustering:traditional_ml' %}">Run Traditional ML</a>
+    <a class="btn btn-violet" href="{% url 'clustering:generative_ai' %}">Run Generative AI</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card blue">
+    <div class="kpi-label">Tickets in Scope <span class="info-dot" data-tip="Total tickets uploaded into this project so far — the pool everything else on this page is calculated from." tabindex="0">i</span></div>
+    <div class="kpi-value">{{ ticket_count }}</div>
+    <div class="kpi-trend">{{ project.domain }}</div>
+  </div>
+  <div class="kpi-card teal">
+    <div class="kpi-label">Traditional ML Clusters <span class="info-dot" data-tip="Groups of similar tickets found by Approach A (word-matching statistics). Click 'Run Traditional ML' above to (re)generate these." tabindex="0">i</span></div>
+    <div class="kpi-value">{{ ml_cluster_count }}</div>
+    <div class="kpi-trend">On-prem engine</div>
+  </div>
+  <div class="kpi-card violet">
+    <div class="kpi-label">Generative AI Clusters <span class="info-dot" data-tip="Groups of similar tickets found by Approach B (meaning-based matching). Click 'Run Generative AI' above to (re)generate these." tabindex="0">i</span></div>
+    <div class="kpi-value">{{ genai_cluster_count }}</div>
+    <div class="kpi-trend">Semantic engine</div>
+  </div>
+  <div class="kpi-card red">
+    <div class="kpi-label">Problem Candidates <span class="info-dot" data-tip="Clusters that look like they deserve a formal ITSM 'Problem' record — recurring often, high confidence, and/or trending upward. A worked example is on the Problem Clusters help section." tabindex="0">i</span></div>
+    <div class="kpi-value">{{ problem_candidates }}</div>
+    <div class="kpi-trend">Rising / high-confidence</div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <div style="display:flex;flex-direction:column;gap:20px">
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <div class="card-title">Detected Problem Clusters</div>
+            <span class="info-dot" data-tip="The groups of related tickets the AI has already found — think of each row as a candidate recurring issue, with how often it happens and how confident the app is." tabindex="0">i</span>
+          </div>
+          <div class="card-subtitle">{{ cluster_count }} active clusters across both engines</div>
+        </div>
+        <a class="card-action" href="{% url 'clustering:list' %}">View All →</a>
+      </div>
+      <div class="card-body">
+        {% if clusters %}
+        <table class="task-table">
+          <thead><tr><th>{% sort_header "name" "Problem Cluster" %}</th><th>{% sort_header "recurring" "Recurring" %}</th><th>{% sort_header "application" "Affected App" %}</th><th>Engine</th><th>{% sort_header "confidence" "Confidence" %}</th><th></th></tr></thead>
+          <tbody>
+            {% for c in clusters %}
+            <tr>
+              <td>
+                <div class="task-name">{{ c.name }}{% if c.is_problem_candidate %} <span class="problem-ribbon">Candidate</span>{% endif %}</div>
+                <div class="task-process">{{ c.top_application|default:"—" }} · {{ c.keywords }}</div>
+              </td>
+              <td>{{ c.recurring_count }}</td>
+              <td><span class="badge badge-grey">{{ c.top_application|default:"—" }}</span></td>
+              <td>{% if c.engine == 'traditional_ml' %}<span class="badge badge-teal">Traditional ML</span>{% else %}<span class="badge badge-violet">Generative AI</span>{% endif %}</td>
+              <td>
+                <div class="conf-bar-wrap">
+                  <div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:{{ c.color }}"></div></div>
+                  <span>{{ c.confidence|floatformat:0 }}%</span>
+                </div>
+              </td>
+              <td><a href="{% url 'clustering:detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+          No clusters yet. <a href="{% url 'tickets:upload' %}">Upload ticket data</a> and run a pipeline to get started.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Two Paths, One Goal</div>
+        <a class="card-action" href="{% url 'how_it_works' %}#engines">Full Comparison →</a>
+      </div>
+      <div class="card-body">
+        <div class="path-compare">
+          <div class="path-half">
+            <div class="path-half-head"><div class="path-half-icon" style="background:var(--teal)">A</div><h4>Traditional ML</h4></div>
+            <p>TF-IDF vectorization → HDBSCAN clustering → confidence scoring. Fully on-prem, explainable, no per-call cost.</p>
+            <div class="taglist"><span class="badge badge-teal">TF-IDF</span><span class="badge badge-teal">HDBSCAN</span><span class="badge badge-teal">On-Prem</span></div>
+          </div>
+          <div class="path-half">
+            <div class="path-half-head"><div class="path-half-icon" style="background:var(--violet)">B</div><h4>Generative AI</h4></div>
+            <p>Sentence-embedding semantic clustering — catches paraphrased tickets describing the same issue with zero shared keywords.</p>
+            <div class="taglist"><span class="badge badge-violet">Embeddings</span><span class="badge badge-violet">Semantic Clustering</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">Quick Triage</div>
+          <span class="info-dot" data-tip="Test-drive a ticket before it's even logged — paste its text in and see which existing cluster it's most likely to belong to. Nothing is saved; this is a one-off lookup." tabindex="0">i</span>
+        </div>
+      </div>
+      <div class="card-body pad">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Paste a new ticket's text to see the closest matching cluster before it's even logged — an instant one-off check, not saved anywhere.</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="classify">
+          <label for="classifyTextInput" class="sr-only">Ticket text to classify</label>
+          <textarea id="classifyTextInput" name="classify_text" rows="3" placeholder="e.g. User unable to login, account locked after password reset..." style="width:100%;margin-bottom:8px;resize:vertical">{{ classify_text_input }}</textarea>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Classify</button>
+        </form>
+        {% if classify_result %}
+          {% if classify_result.results %}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">{{ classify_result.summary }}</div>
+            {% with top=classify_result.results.0 %}
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              {% if top.cluster %}<span class="badge badge-violet">{{ top.cluster.name }}</span>{% else %}<span class="badge badge-grey">Not yet clustered</span>{% endif %}
+              <span style="font-weight:700;color:var(--text-primary)">{{ top.similarity }}%{% if top.is_weak %} <span class="badge badge-amber" style="font-weight:400" title="Below the confidence floor for a reliable match">Weak</span>{% endif %}</span>
+            </div>
+            {% if top.cluster.resolution_notes %}
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+              <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px">
+                {% if top.cluster.resolution_source == 'copilot_assisted' %}Known fix (AI-suggested via Copilot){% else %}Known fix (analyst notes){% endif %}
+              </div>
+              <div style="font-size:12px;color:var(--text-primary);white-space:pre-wrap;line-height:1.5;max-height:80px;overflow:auto">{{ top.cluster.resolution_notes|truncatechars:220 }}</div>
+            </div>
+            {% endif %}
+            {% if top.cluster %}<a href="{% url 'clustering:detail' top.cluster.id %}" class="btn btn-outline" style="margin-top:10px;width:100%;justify-content:center;padding:6px">Open cluster →</a>{% endif %}
+            {% endwith %}
+          </div>
+          {% else %}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">No search index yet for this project — run <a href="{% url 'clustering:generative_ai' %}">Generative AI</a> clustering first, or <a href="{% url 'clustering:search' %}">build the search index directly</a>.</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Quick Launch</div></div>
+      <div class="card-body">
+        <div class="quick-launch-grid">
+          <a class="quick-card" href="{% url 'tickets:upload' %}"><div><div class="quick-card-label">Upload Data</div><div class="quick-card-desc">CSV / Excel import</div></div></a>
+          <a class="quick-card" href="{% url 'tickets:eda' %}"><div><div class="quick-card-label">Data Analysis</div><div class="quick-card-desc">Trends by country, date</div></div></a>
+          <a class="quick-card" href="{% url 'clustering:traditional_ml' %}"><div><div class="quick-card-label">Traditional ML</div><div class="quick-card-desc">Run clustering pipeline</div></div></a>
+          <a class="quick-card" href="{% url 'clustering:generative_ai' %}"><div><div class="quick-card-label">Generative AI</div><div class="quick-card-desc">Run embeddings pipeline</div></div></a>
+          <a class="quick-card" href="{% url 'clustering:explorer' %}"><div><div class="quick-card-label">Cluster Explorer</div><div class="quick-card-desc">2D / 3D visualization</div></div></a>
+          <a class="quick-card" href="{% url 'how_it_works' %}#roadmap"><div><div class="quick-card-label">Roadmap</div><div class="quick-card-desc">Pilot → Enterprise</div></div></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Data Sources</div></div>
+      <div class="card-body pad">
+        <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.7">Upload CSV or Excel exports from ServiceNow, Jira, or any ITSM tool. Map columns once — {{ site_settings.site_name }} remembers the shape of your data for this project.</p>
+        <a class="btn btn-outline" style="margin-top:12px;width:100%;justify-content:center" href="{% url 'tickets:upload' %}">Upload New File</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<details class="card help-block">
+  <summary>Help — Getting started on this page</summary>
+  <div class="help-body">
+    <p>This is the home base for <strong>{{ project.name }}</strong> — everything here is scoped to whichever project is selected in the top-right switcher.</p>
+    <h4>Typical workflow</h4>
+    <ol>
+      <li><strong>Upload Data</strong> — bring in a CSV/Excel export from your ITSM tool.</li>
+      <li>Run <strong>Traditional ML</strong> and/or <strong>Generative AI</strong> — both are safe to run on the same data; results are kept separately per engine.</li>
+      <li>Review <strong>Problem Clusters</strong> — recurring patterns are ranked by recurrence, with a Candidate ribbon on the ones that clear this run's thresholds (see the Help section on the Problem Clusters page for exactly how that's decided).</li>
+      <li>Open a cluster's detail page to see its trend, confidence, and member tickets before deciding whether to raise a real Problem Record.</li>
+    </ol>
+    <h4>Reading the KPI cards</h4>
+    <ul>
+      <li><strong>Tickets in Scope</strong> — total tickets currently in this project, regardless of which upload they came from.</li>
+      <li><strong>Traditional ML / Generative AI Clusters</strong> — how many non-noise clusters each engine currently has saved. These are independent — running one doesn't affect the other.</li>
+      <li><strong>Problem Candidates</strong> — count across both engines combined.</li>
+    </ul>
+    <p>No results yet? Nothing here is fabricated — an empty state just means that engine hasn't been run on this project's current data.</p>
+  </div>
+</details>
+
+{% endblock %}

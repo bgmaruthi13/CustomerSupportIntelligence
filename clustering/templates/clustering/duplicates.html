@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Possible Duplicates{% endblock %}
+{% block breadcrumb %}Possible Duplicates{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Possible Duplicates — {{ project.name }}</div>
+    <div class="page-subtitle">A proactive project-wide sweep, not ad-hoc lookup — pairs flagged here are highly similar AND close in time AND share a reporter or application, not just "same topic."</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="info-dot" data-tip="Compares every pair of tickets and flags ones that are almost certainly the same issue reported twice — highly similar text, close in time, same reporter or app. {% if not total_indexed %}First run also builds the search index this needs.{% endif %}" tabindex="0">i</span>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="scan">
+      <button type="submit" class="btn btn-primary">{% if total_indexed %}Scan for Duplicates{% else %}Build Index &amp; Scan{% endif %}</button>
+    </form>
+  </div>
+</div>
+
+{% if not total_indexed %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No search index yet for this project. Run a scan to build one and check for duplicates in the same step, or run <a href="{% url 'clustering:generative_ai' %}">Generative AI</a> clustering first.
+</div>
+{% elif not pending_count %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No pending possible duplicates. {% if reviewed_count %}{{ reviewed_count }} pair{{ reviewed_count|pluralize }} already reviewed.{% endif %} Run a scan to check for new ones (e.g. after a fresh upload).
+</div>
+{% else %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary)">
+    {{ pending_count }} pending pair{{ pending_count|pluralize }} to review{% if reviewed_count %} · {{ reviewed_count }} already reviewed{% endif %}.
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:7px">
+      <div class="card-title">Pending Review</div>
+      <span class="info-dot" data-tip="'Confirm Duplicate' and 'Not a Duplicate' only record your decision here — neither button deletes or merges a ticket. A reviewed pair won't be flagged again." tabindex="0">i</span>
+    </div>
+    {% if bulk_eligible_count %}
+    <form method="post" onsubmit="return confirm('Confirm all {{ bulk_eligible_count }} pending pair{{ bulk_eligible_count|pluralize }} at ≥{{ bulk_confirm_threshold }}% similarity as duplicates?');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="bulk_confirm">
+      <button type="submit" class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--red);border-color:var(--red)">Confirm All ≥{{ bulk_confirm_threshold }}% ({{ bulk_eligible_count }})</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "ticket_a" "Ticket A" %}</th>
+        <th>Ticket B</th>
+        <th>{% sort_header "similarity" "Similarity" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for pair in pending %}
+        <tr>
+          <td>
+            <div class="task-name">{{ pair.ticket_a.external_id }}</div>
+            <div class="task-process">{{ pair.ticket_a.title|truncatechars:60 }}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ pair.ticket_a.created_by }} · {{ pair.ticket_a.created_at|date:"d M Y" }}</div>
+          </td>
+          <td>
+            <div class="task-name">{{ pair.ticket_b.external_id }}</div>
+            <div class="task-process">{{ pair.ticket_b.title|truncatechars:60 }}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">{{ pair.ticket_b.created_by }} · {{ pair.ticket_b.created_at|date:"d M Y" }}</div>
+          </td>
+          <td>{{ pair.similarity|floatformat:1 }}%</td>
+          <td style="white-space:nowrap">
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="confirm">
+              <input type="hidden" name="pair_id" value="{{ pair.id }}">
+              <button type="submit" class="btn btn-outline" style="padding:4px 10px;font-size:12px;color:var(--red);border-color:var(--red)">Confirm Duplicate</button>
+            </form>
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="dismiss">
+              <input type="hidden" name="pair_id" value="{{ pair.id }}">
+              <button type="submit" class="btn btn-outline" style="padding:4px 10px;font-size:12px">Not a Duplicate</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How are possible duplicates found?</summary>
+  <div class="help-body">
+    <p>A scan compares every pair of embedded tickets in the project. A pair is only flagged if <strong>all three</strong> hold: cosine similarity ≥92% (a much higher bar than clustering — this is about near-identical tickets, not "same topic"), created within 7 days of each other, and reported by the same person or against the same application. High similarity alone isn't enough — two genuinely different-but-related issues can be very similar in embedding space without being duplicates.</p>
+    <p><strong>Confirm Duplicate</strong> / <strong>Not a Duplicate</strong> only record your review — they don't merge or delete either ticket. Once reviewed, a pair won't reappear in a future scan.</p>
+  </div>
+</details>
+
+{% endblock %}

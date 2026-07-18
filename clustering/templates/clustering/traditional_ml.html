@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Traditional ML{% endblock %}
+{% block breadcrumb %}Traditional ML{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Approach A · Traditional ML</div>
+    <div class="page-subtitle">TF-IDF + HDBSCAN clustering — fully on-prem, explainable, no per-call cost.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="project-card-dot" style="background:{{ project.color }};width:44px;height:44px;font-size:16px">{{ project.initials }}</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Dataset: {{ project.name }}</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);margin-top:2px">
+          {{ ticket_count }} tickets total
+          {% if earliest %} · {{ earliest|date:"d M Y" }} → {{ latest|date:"d M Y" }}{% endif %}
+          {% if has_run %} · last run {{ last_run_at|timesince }} ago on <strong>{{ last_run_scope }}</strong> ({{ last_run_granularity }}){% else %} · never run{% endif %}
+        </div>
+      </div>
+      {% if has_run %}
+      <form method="post" action="{% url 'clustering:reset_clusters' 'traditional_ml' %}" onsubmit="return confirm('Reset all {{ cluster_count }} Traditional ML clusters for {{ project.name }}? Tickets and uploads are untouched — you can re-run the pipeline anytime.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)">Reset Results</button>
+      </form>
+      {% endif %}
+    </div>
+    <form method="post" id="runPipelineForm" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      {% csrf_token %}
+      <div class="form-field" style="margin-bottom:0;flex:1;min-width:260px">
+        <label>Run on <span class="info-dot" data-tip="Which tickets to group. Defaults to everything in this project — narrow it to one upload or offering if you only want patterns within a smaller slice of the data." tabindex="0">i</span></label>
+        <select name="dataset_scope" id="datasetScopeSelect">
+          {% for opt in dataset_options %}
+          <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0;min-width:180px">
+        <label>Granularity <span class="info-dot" data-tip="How big the groups should be. Broad = fewer, larger groups. Fine-grained = more, smaller, tighter groups. Balanced is right for most data — start there." tabindex="0">i</span></label>
+        <select name="granularity">
+          {% for value, label in granularity_choices %}
+          <option value="{{ value }}" {% if value == default_granularity %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-teal" id="runPipelineBtn" {% if ticket_count < 8 %}disabled title="Upload at least 8 tickets first"{% endif %}>
+        Run Traditional ML
+      </button>
+      <span class="info-dot" style="margin-bottom:9px" data-tip="Scans the selected tickets and groups the similar ones together using classic statistics (word matching) — fast, fully explainable, and runs only on this machine. Running again replaces this engine's previous results." tabindex="0">i</span>
+    </form>
+  </div>
+  <div id="runPipelineNotice" style="display:none;padding:12px 20px;background:var(--amber-bg);color:#92620a;font-size:12.5px;border-top:1px solid var(--border)">
+    Running on the selected dataset — large selections can take 1–2 minutes. This page will reload automatically when done; please don't navigate away.
+  </div>
+</div>
+
+{% if has_run %}
+<div class="kpi-grid">
+  <div class="kpi-card teal"><div class="kpi-label">Clusters Found</div><div class="kpi-value">{{ cluster_count }}</div></div>
+  <div class="kpi-card red"><div class="kpi-label">Problem Candidates</div><div class="kpi-value">{{ problem_count }}</div></div>
+  <div class="kpi-card blue"><div class="kpi-label">Avg Confidence</div><div class="kpi-value">{{ avg_confidence }}%</div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Unclustered (Noise)</div><div class="kpi-value">{{ noise_pct }}%</div><div class="kpi-trend">{{ noise_count }} tickets</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Results</div>
+      <div class="card-subtitle">Top {{ clusters|length }} of {{ cluster_count }} clusters by recurrence</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a class="card-action" href="{% url 'clustering:explorer' %}?engine=traditional_ml">View 2D/3D →</a>
+      <a class="card-action" href="{% url 'clustering:list' %}?engine=traditional_ml">View All Clusters →</a>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if clusters %}
+    <table class="task-table">
+      <thead><tr><th>{% sort_header "name" "Cluster" %}</th><th>{% sort_header "recurring" "Recurring" %}</th>{% if show_application_col %}<th>{% sort_header "application" "App" %}</th>{% endif %}{% if show_offering_col %}<th>{% sort_header "offering" "Offering" %}</th>{% endif %}<th>{% sort_header "trend" "Trend" %}</th><th>{% sort_header "confidence" "Confidence" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for c in clusters %}
+        <tr>
+          <td>
+            <div class="task-name">{{ c.name }}{% if c.is_problem_candidate %} <span class="problem-ribbon">Candidate</span>{% endif %}</div>
+            <div class="task-process">{{ c.keywords }}</div>
+          </td>
+          <td>{{ c.recurring_count }}</td>
+          {% if show_application_col %}<td><span class="badge badge-grey">{{ c.top_application }}</span></td>{% endif %}
+          {% if show_offering_col %}<td><span class="badge badge-grey">{{ c.top_offering|default:"—" }}</span></td>{% endif %}
+          <td>
+            {% if c.trend == 'rising' %}<span class="trend-up" title="{{ c.trend_reasoning }}">▲ Rising</span>
+            {% elif c.trend == 'falling' %}<span class="trend-down" title="{{ c.trend_reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ c.trend_reasoning }}">● Stable</span>{% endif %}
+          </td>
+          <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:var(--teal)"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+          <td><a href="{% url 'clustering:detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No clusters yet for this engine.</div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body pad" style="text-align:center;color:var(--text-muted)">No results yet — click "Run Traditional ML" above to cluster this project's {{ ticket_count }} tickets.</div></div>
+{% endif %}
+
+<details style="margin-top:20px">
+  <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-secondary);padding:14px 4px">How this pipeline works (Architecture)</summary>
+  <div class="card" style="margin-top:12px">
+    <div class="pipeline-flow">
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">1</div><div><div class="step-label">Ticket Extraction</div><div class="step-desc">Uploaded CSV/Excel data for {{ project.name }}</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">2</div><div><div class="step-label">Text Vectorization</div><div class="step-desc">TF-IDF (unigrams + bigrams, scikit-learn)</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">3</div><div><div class="step-label">Dimensionality Reduction</div><div class="step-desc">TruncatedSVD (LSA) — used for clustering and 3D visualization</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">4</div><div><div class="step-label">Clustering Engine</div><div class="step-desc">HDBSCAN — auto-detects cluster count, separates noise</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">5</div><div><div class="step-label">Keyword Extraction &amp; Naming</div><div class="step-desc">Top TF-IDF terms per cluster</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">6</div><div><div class="step-label">Confidence Scoring &amp; Trend Detection</div><div class="step-desc">cluster size + density + recency</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--primary)">7</div><div><div class="step-label">Problem Candidate Flagging</div></div></div>
+    </div>
+    <div style="padding:0 20px 20px"><p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6"><strong>Core strength:</strong> fully on-prem capable, no external API dependency, no per-call cost, transparent/explainable logic.</p></div>
+  </div>
+</details>
+
+<details class="card help-block">
+  <summary>Help — Running this pipeline</summary>
+  <div class="help-body">
+    <h4>Choosing a "Run on" scope</h4>
+    <p>Defaults to all of this project's tickets. Narrow it to a single upload if you want results from just one file, or to a specific <strong>Offering</strong> if you only want to look for patterns within one product/service line — useful when a project's tickets span several offerings that shouldn't really be clustered together.</p>
+    <h4>Granularity</h4>
+    <p><strong>Broad</strong> favors fewer, larger clusters. <strong>Balanced</strong> (default) is the recommended setting for most datasets. <strong>Fine-grained</strong> pushes for more, smaller, more homogeneous clusters — try this if Balanced still feels too coarse for your data. This doesn't change the underlying algorithm (still HDBSCAN), just how it's tuned to select clusters.</p>
+    <h4>Reading the results</h4>
+    <ul>
+      <li><strong>Clusters Found</strong> — the count of real (non-noise) groups HDBSCAN detected. It picks this number itself based on density; you don't set a target cluster count.</li>
+      <li><strong>Unclustered (Noise)</strong> — tickets that didn't fit any dense group. Some noise is normal (one-off tickets, typos-only titles); a very high percentage usually means the text is too sparse or too generic to vectorize well.</li>
+      <li><strong>Candidate</strong> ribbon — see the Help section on the <a href="{% url 'clustering:list' %}">Problem Clusters</a> page for exactly how this is decided, with a worked example.</li>
+    </ul>
+    <h4>Re-running</h4>
+    <p>Running again <strong>replaces</strong> this engine's previous results — it doesn't add to them. <strong>Reset Results</strong> clears them without a re-run, if you just want a clean slate; your tickets and uploads are never touched either way.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const runForm = document.getElementById('runPipelineForm');
+  if (runForm) {
+    runForm.addEventListener('submit', () => {
+      const btn = document.getElementById('runPipelineBtn');
+      btn.disabled = true;
+      btn.innerHTML = 'Running…';
+      const notice = document.getElementById('runPipelineNotice');
+      if (notice) notice.style.display = 'block';
+    });
+  }
+</script>
+{% endblock %}

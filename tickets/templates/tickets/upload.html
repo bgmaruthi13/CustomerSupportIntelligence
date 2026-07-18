@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Upload Data{% endblock %}
+{% block breadcrumb %}Upload Data{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Upload Ticket Data</div>
+    <div class="page-subtitle">Upload a CSV or Excel export from ServiceNow, Jira, or any ITSM tool. You'll map columns and choose a date format on the next screen — nothing is imported until you confirm.</div>
+  </div>
+</div>
+
+<div class="wizard-steps">
+  <div class="wizard-step active"><span class="num">1</span> Upload File</div>
+  <div class="wizard-sep"></div>
+  <div class="wizard-step"><span class="num">2</span> Map Columns</div>
+  <div class="wizard-sep"></div>
+  <div class="wizard-step"><span class="num">3</span> Review &amp; Import</div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad">
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+      {% csrf_token %}
+      <input type="file" name="file" id="fileInput" accept=".csv,.xlsx,.xls" class="visually-hidden-file-input" required>
+      <label class="dropzone" for="fileInput" id="dropzone">
+        <div class="title">Drag &amp; drop a CSV or Excel file here, or click to browse</div>
+        <div class="desc">.csv, .xlsx, .xls · up to 25 MB</div>
+        <div class="desc" id="fileNameLabel" style="margin-top:10px;font-weight:600;color:var(--primary)"></div>
+      </label>
+      <div style="margin-top:20px;text-align:center">
+        <button type="submit" class="btn btn-primary">Continue to Column Mapping →</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if recent_batches %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Recent Uploads for {{ current_project.name }}</div></div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr><th>{% sort_header "version" "Upload" %}</th><th>{% sort_header "status" "Status" %}</th><th>Rows</th><th>{% sort_header "imported" "Imported" %}</th><th>Errors</th><th>{% sort_header "created" "Uploaded" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for b in recent_batches %}
+        <tr>
+          <td class="task-name" title="{{ b.original_filename }}">{{ b.display_name }}</td>
+          <td>
+            {% if b.status == 'committed' %}<span class="badge badge-green">Committed</span>
+            {% elif b.status == 'failed' %}<span class="badge badge-red">Failed</span>
+            {% else %}<span class="badge badge-amber">Awaiting Mapping</span>{% endif %}
+          </td>
+          <td>{{ b.total_rows }}</td>
+          <td>{{ b.success_rows }}</td>
+          <td>{{ b.error_rows }}</td>
+          <td style="color:var(--text-muted)">{{ b.created_at|date:"d M Y H:i" }}</td>
+          <td style="display:flex;gap:6px">
+            <a href="{% url 'tickets:mapping' b.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Edit Mapping</a>
+            <form method="post" action="{% url 'tickets:delete_batch' b.id %}" onsubmit="return confirm('Delete all {{ b.success_rows }} tickets imported from {{ b.display_name }} (&quot;{{ b.original_filename }}&quot;)? This cannot be undone — re-run your pipelines afterward.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px;color:var(--red);border-color:var(--red-bg)">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if current_project.ticket_count or recent_batches %}
+<div class="card" style="border-color:var(--red-bg)">
+  <div class="card-header"><div class="card-title" style="color:var(--red)">Danger Zone</div></div>
+  <div class="card-body pad" style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Reset data for "{{ current_project.name }}"</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Truncates all {{ current_project.ticket_count }} tickets, every cluster, and the upload history in this project — version numbering restarts at v1. Other projects are unaffected.</div>
+    </div>
+    <button type="button" class="btn btn-outline" style="color:var(--red);border-color:var(--red)" id="clearAllBtn">Reset Data</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="clearAllOverlay">
+  <div class="modal-box">
+    <form method="post" action="{% url 'tickets:delete_all_data' %}">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h3 style="color:var(--red)">Reset Data</h3>
+        <span class="modal-close" id="clearAllClose">✕</span>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">This permanently truncates all {{ current_project.ticket_count }} tickets, every cluster, and all upload history in <strong>{{ current_project.name }}</strong>. Type the project name to confirm.</p>
+        <div class="form-field">
+          <label>Project name</label>
+          <input type="text" name="confirm_name" placeholder="{{ current_project.name }}" required autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="clearAllCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:var(--red)">Reset Everything</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — Uploading data</summary>
+  <div class="help-body">
+    <h4>What to upload</h4>
+    <p>A CSV or Excel export of Incidents, Requests, Changes, or Production Support tickets — .csv, .xlsx, or .xls, up to 25 MB. Any column layout is fine; you'll match your columns to fields on the next screen.</p>
+    <h4>The 3-step wizard</h4>
+    <ol>
+      <li><strong>Upload File</strong> — just the raw file, nothing is read yet.</li>
+      <li><strong>Map Columns</strong> — tell it which of your columns is the title, date, country, etc. Nothing is mandatory; unmapped fields get a sensible fallback instead of blocking the import.</li>
+      <li><strong>Review &amp; Import</strong> — a preview of the first 20 mapped rows, then a full commit of every row.</li>
+    </ol>
+    <h4>Recent Uploads</h4>
+    <p>Every commit is versioned (Upload v1, v2, …) so you always know which file produced which tickets. <strong>Delete</strong> on a row removes only that upload's tickets — re-run your pipelines afterward since existing clusters won't automatically drop the deleted tickets.</p>
+    <h4>Danger Zone — Reset Data</h4>
+    <p>This wipes <strong>every</strong> ticket, cluster, and upload record for the current project only — other projects are untouched. It's irreversible, which is why it requires typing the project name to confirm. Use it when starting a clean pilot, not for removing one bad upload (use Delete on that row instead).</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileNameLabel = document.getElementById('fileNameLabel');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) fileNameLabel.textContent = '✓ ' + fileInput.files[0].name;
+  });
+
+  ['dragenter', 'dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropzone.classList.add('drag-over');
+  }));
+  ['dragleave', 'drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropzone.classList.remove('drag-over');
+  }));
+  dropzone.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      fileNameLabel.textContent = '✓ ' + e.dataTransfer.files[0].name;
+    }
+  });
+
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const clearAllOverlay = document.getElementById('clearAllOverlay');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', () => clearAllOverlay.classList.add('open'));
+    document.getElementById('clearAllClose').addEventListener('click', () => clearAllOverlay.classList.remove('open'));
+    document.getElementById('clearAllCancel').addEventListener('click', () => clearAllOverlay.classList.remove('open'));
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Import Results{% endblock %}
+{% block breadcrumb %}Upload Data › Result{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title" title="{{ batch.original_filename }}">Import Complete — {{ batch.display_name }}</div>
+    <div class="page-subtitle">{{ batch.total_rows }} rows processed for {{ current_project.name }}.</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a class="btn btn-outline" href="{% url 'tickets:upload' %}">Upload Another File</a>
+    <a class="btn btn-primary" href="{% url 'tickets:eda' %}">View Data Analysis</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card blue"><div class="kpi-label">Total Rows</div><div class="kpi-value">{{ batch.total_rows }}</div></div>
+  <div class="kpi-card green"><div class="kpi-label">Imported</div><div class="kpi-value">{{ batch.success_rows }}</div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Imported with a Default</div><div class="kpi-value">{{ batch.warning_log|length }}</div></div>
+  <div class="kpi-card red"><div class="kpi-label">Skipped (errors)</div><div class="kpi-value">{{ batch.error_rows }}</div></div>
+</div>
+
+{% if batch.error_log %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Skipped Rows</div><div class="card-subtitle">Showing up to 500 — not imported (genuine duplicates); fix and re-upload if needed</div></div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr><th>Row</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for err in batch.error_log %}
+        <tr class="error-row"><td>{{ err.row }}</td><td>{{ err.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if batch.warning_log %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Imported with a Default</div><div class="card-subtitle">Showing up to 500 — these rows were still imported; an unmapped or unparseable field was auto-filled</div></div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr><th>Row</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for w in batch.warning_log %}
+        <tr><td>{{ w.row }}</td><td style="color:var(--amber)">{{ w.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not batch.error_log and not batch.warning_log %}
+<div class="card"><div class="card-body pad" style="text-align:center;color:var(--green);font-weight:600">Zero issues — every row imported cleanly with full mapping.</div></div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — Reading these results</summary>
+  <div class="help-body">
+    <ul>
+      <li><strong>Imported</strong> — the row was saved successfully, with every mapped field parsed cleanly.</li>
+      <li><strong>Imported with a Default</strong> — not an error. The row was still saved, but at least one field was either left unmapped or failed to parse (e.g. an unrecognized date format), so a fallback was used — a placeholder title, the import timestamp, an auto-generated ID, etc. Expand the table below to see exactly which field and why, per row.</li>
+      <li><strong>Skipped (errors)</strong> — the only thing that blocks a row entirely is a genuine duplicate external ID (matching one already in this project, or repeated within the same file). Nothing else causes a skip.</li>
+    </ul>
+    <p>If "Imported with a Default" looks high, it usually means a column wasn't mapped on the previous screen, or a date column needs an explicit format instead of Auto-detect — go back to Map Columns to fix the mapping and re-import a corrected file (this run's tickets are already saved; re-importing creates a new upload version rather than duplicating, since external IDs are deduplicated automatically).</p>
+  </div>
+</details>
+
+{% endblock %}

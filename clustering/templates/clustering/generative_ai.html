@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Generative AI{% endblock %}
+{% block breadcrumb %}Generative AI{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Approach B · Generative AI</div>
+    <div class="page-subtitle">Sentence-embedding semantic clustering — catches paraphrased tickets with zero shared keywords.</div>
+  </div>
+</div>
+
+{% include "core/_demo_banner.html" with demo_text="Azure OpenAI access isn't approved for this org yet, so this pipeline substitutes a local sentence-embedding model (all-MiniLM-L6-v2) in the same architectural role. Clustering below runs for real on your uploaded data — only the embeddings provider differs from the target production design." %}
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="project-card-dot" style="background:{{ project.color }};width:44px;height:44px;font-size:16px">{{ project.initials }}</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Dataset: {{ project.name }}</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);margin-top:2px">
+          {{ ticket_count }} tickets total
+          {% if earliest %} · {{ earliest|date:"d M Y" }} → {{ latest|date:"d M Y" }}{% endif %}
+          {% if has_run %} · last run {{ last_run_at|timesince }} ago on <strong>{{ last_run_scope }}</strong> ({{ last_run_granularity }}){% else %} · never run{% endif %}
+        </div>
+      </div>
+      {% if has_run %}
+      <form method="post" action="{% url 'clustering:reset_clusters' 'generative_ai' %}" onsubmit="return confirm('Reset all {{ cluster_count }} Generative AI clusters for {{ project.name }}? Tickets and uploads are untouched — you can re-run the pipeline anytime.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)">Reset Results</button>
+      </form>
+      {% endif %}
+    </div>
+    <form method="post" id="runPipelineForm" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      {% csrf_token %}
+      <div class="form-field" style="margin-bottom:0;flex:1;min-width:260px">
+        <label>Run on <span class="info-dot" data-tip="Which tickets to group. Defaults to everything in this project — narrow it to one upload or offering if you only want patterns within a smaller slice of the data." tabindex="0">i</span></label>
+        <select name="dataset_scope" id="datasetScopeSelect">
+          {% for opt in dataset_options %}
+          <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0;min-width:180px">
+        <label>Granularity <span class="info-dot" data-tip="How big the groups should be. Broad = fewer, larger groups. Fine-grained = more, smaller, tighter groups. Balanced is right for most data — start there." tabindex="0">i</span></label>
+        <select name="granularity">
+          {% for value, label in granularity_choices %}
+          <option value="{{ value }}" {% if value == default_granularity %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-violet" id="runPipelineBtn" {% if ticket_count < 8 %}disabled title="Upload at least 8 tickets first"{% endif %}>
+        Run Generative AI
+      </button>
+      <span class="info-dot" style="margin-bottom:9px" data-tip="Scans the selected tickets and groups the similar ones together by meaning, not just matching words — so two tickets worded completely differently can still land in the same group. Runs locally, no external API. Running again replaces this engine's previous results." tabindex="0">i</span>
+    </form>
+  </div>
+  <div id="runPipelineNotice" style="display:none;padding:12px 20px;background:var(--amber-bg);color:#92620a;font-size:12.5px;border-top:1px solid var(--border)">
+    Embedding + clustering the selected dataset locally can take 2–5 minutes on large selections. This page will reload automatically when done; please don't navigate away.
+  </div>
+</div>
+
+{% if has_run %}
+<div class="kpi-grid">
+  <div class="kpi-card violet"><div class="kpi-label">Clusters Found</div><div class="kpi-value">{{ cluster_count }}</div></div>
+  <div class="kpi-card red"><div class="kpi-label">Problem Candidates</div><div class="kpi-value">{{ problem_count }}</div></div>
+  <div class="kpi-card blue"><div class="kpi-label">Avg Confidence</div><div class="kpi-value">{{ avg_confidence }}%</div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Unclustered (Noise)</div><div class="kpi-value">{{ noise_pct }}%</div><div class="kpi-trend">{{ noise_count }} tickets</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Results</div>
+      <div class="card-subtitle">Top {{ clusters|length }} of {{ cluster_count }} clusters by recurrence</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a class="card-action" href="{% url 'clustering:explorer' %}?engine=generative_ai">View 2D/3D →</a>
+      <a class="card-action" href="{% url 'clustering:list' %}?engine=generative_ai">View All Clusters →</a>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if clusters %}
+    <table class="task-table">
+      <thead><tr><th>{% sort_header "name" "Cluster" %}</th><th>{% sort_header "recurring" "Recurring" %}</th>{% if show_application_col %}<th>{% sort_header "application" "App" %}</th>{% endif %}{% if show_offering_col %}<th>{% sort_header "offering" "Offering" %}</th>{% endif %}<th>{% sort_header "trend" "Trend" %}</th><th>{% sort_header "confidence" "Confidence" %}</th><th></th></tr></thead>
+      <tbody>
+        {% for c in clusters %}
+        <tr>
+          <td>
+            <div class="task-name">{{ c.name }}{% if c.is_problem_candidate %} <span class="problem-ribbon">Candidate</span>{% endif %}</div>
+            <div class="task-process">{{ c.keywords }}</div>
+          </td>
+          <td>{{ c.recurring_count }}</td>
+          {% if show_application_col %}<td><span class="badge badge-grey">{{ c.top_application }}</span></td>{% endif %}
+          {% if show_offering_col %}<td><span class="badge badge-grey">{{ c.top_offering|default:"—" }}</span></td>{% endif %}
+          <td>
+            {% if c.trend == 'rising' %}<span class="trend-up" title="{{ c.trend_reasoning }}">▲ Rising</span>
+            {% elif c.trend == 'falling' %}<span class="trend-down" title="{{ c.trend_reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ c.trend_reasoning }}">● Stable</span>{% endif %}
+          </td>
+          <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:var(--violet)"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+          <td><a href="{% url 'clustering:detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No clusters yet for this engine.</div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body pad" style="text-align:center;color:var(--text-muted)">No results yet — click "Run Generative AI" above to cluster this project's {{ ticket_count }} tickets.</div></div>
+{% endif %}
+
+<details style="margin-top:20px">
+  <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-secondary);padding:14px 4px">How this pipeline works (Architecture)</summary>
+  <div class="card" style="margin-top:12px">
+    <div class="pipeline-flow">
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">1</div><div><div class="step-label">Ticket Extraction</div><div class="step-desc">Uploaded CSV/Excel data for {{ project.name }}</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">2</div><div><div class="step-label">Sentence Embeddings</div><div class="step-desc">all-MiniLM-L6-v2 (local model, same architectural role as Azure OpenAI Embeddings)</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">3</div><div><div class="step-label">Semantic Clustering</div><div class="step-desc">HDBSCAN on normalized embedding space</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">4</div><div><div class="step-label">Dimensionality Reduction (viz)</div><div class="step-desc">UMAP → 3D coordinates</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">5</div><div><div class="step-label">Pattern Detection &amp; Naming</div><div class="step-desc">Representative keyword extraction per cluster</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">6</div><div><div class="step-label">Confidence Scoring &amp; Trend Detection</div></div></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-step"><div class="step-num" style="background:var(--primary)">7</div><div><div class="step-label">Problem Candidate Flagging</div></div></div>
+    </div>
+    <div style="padding:0 20px 20px">
+      <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6"><strong>Core strength:</strong> deep semantic understanding — catches paraphrased or differently-worded tickets describing the same issue.</p>
+      <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-top:8px"><strong>Note on this build:</strong> Azure OpenAI access is not yet approved for this org. This pipeline substitutes a local sentence-embedding model in the same architectural role — real semantic clustering runs on your uploaded data, only the embeddings provider differs from the target production design.</p>
+    </div>
+  </div>
+</details>
+
+<details class="card help-block">
+  <summary>Help — Running this pipeline</summary>
+  <div class="help-body">
+    <h4>When to use this over Traditional ML</h4>
+    <p>Use Generative AI when tickets describing the same issue are worded very differently ("batch job stuck" vs. "nightly process not finishing") — TF-IDF needs shared vocabulary to see the connection, embeddings capture the meaning instead. It's slower and CPU-heavier, so for a quick first pass on a large dataset, Traditional ML is usually the better starting point.</p>
+    <h4>Choosing a "Run on" scope</h4>
+    <p>Same options as Traditional ML — all tickets, one upload, or one <strong>Offering</strong> — useful for keeping semantically-similar-but-unrelated offerings from bleeding into each other's clusters.</p>
+    <h4>Granularity</h4>
+    <p>Same three presets as Traditional ML — <strong>Broad</strong> favors fewer, larger clusters, <strong>Balanced</strong> (default) is right for most datasets, <strong>Fine-grained</strong> pushes for more, smaller clusters if Balanced still feels too coarse.</p>
+    <h4>Reading the results</h4>
+    <p>Clusters Found, Unclustered (Noise), Confidence, and Trend all mean the same thing here as on Traditional ML — the scoring logic (<code>clustering/scoring.py</code>) is shared between both engines, only the vectorization differs. See the <a href="{% url 'clustering:list' %}">Problem Clusters</a> page's Help section for the full Problem Candidate logic with a worked example.</p>
+    <h4>Re-running</h4>
+    <p>Running again <strong>replaces</strong> this engine's previous results. <strong>Reset Results</strong> clears them without a re-run. Neither touches Traditional ML's results, or your tickets/uploads.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const runForm = document.getElementById('runPipelineForm');
+  if (runForm) {
+    runForm.addEventListener('submit', () => {
+      const btn = document.getElementById('runPipelineBtn');
+      btn.disabled = true;
+      btn.innerHTML = 'Running…';
+      const notice = document.getElementById('runPipelineNotice');
+      if (notice) notice.style.display = 'block';
+    });
+  }
+</script>
+{% endblock %}

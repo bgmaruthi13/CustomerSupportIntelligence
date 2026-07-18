@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Problem Clusters{% endblock %}
+{% block breadcrumb %}Problem Clusters{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Problem Clusters — {{ project.name }}</div>
+    <div class="page-subtitle">Every recurring pattern detected across both engines, ranked by recurrence.</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a class="btn btn-teal" href="{% url 'clustering:traditional_ml' %}">Run Traditional ML</a>
+    <a class="btn btn-violet" href="{% url 'clustering:generative_ai' %}">Run Generative AI</a>
+    {% if ml_count or genai_count %}
+    <form method="post" action="{% url 'clustering:reset_clusters' 'all' %}" onsubmit="return confirm('Reset ALL clustering results (both engines) for {{ project.name }}? Tickets and uploads are untouched — you can re-run either pipeline anytime.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline" style="color:var(--red);border-color:var(--red)">Reset All Results</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card blue"><div class="kpi-label">Total Clusters</div><div class="kpi-value">{{ ml_count|add:genai_count }}</div></div>
+  <div class="kpi-card teal"><div class="kpi-label">Traditional ML</div><div class="kpi-value">{{ ml_count }}</div></div>
+  <div class="kpi-card violet"><div class="kpi-label">Generative AI</div><div class="kpi-value">{{ genai_count }}</div></div>
+  <div class="kpi-card red"><div class="kpi-label">Problem Candidates</div><div class="kpi-value">{{ problem_count }}</div></div>
+</div>
+
+{% if ml_source or genai_source %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad" style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--text-secondary)">
+    {% if ml_source %}<div><strong>Traditional ML</strong> results are based on: <strong style="color:var(--text-primary)">{{ ml_source }}</strong></div>{% endif %}
+    {% if genai_source %}<div><strong>Generative AI</strong> results are based on: <strong style="color:var(--text-primary)">{{ genai_source }}</strong></div>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">All Detected Clusters</div>
+    <div style="display:flex;gap:8px">
+      <a class="btn btn-outline {% if engine_filter == 'all' %}btn-primary{% endif %}" href="?engine=all">Both</a>
+      <a class="btn btn-outline {% if engine_filter == 'traditional_ml' %}btn-primary{% endif %}" href="?engine=traditional_ml">Traditional ML</a>
+      <a class="btn btn-outline {% if engine_filter == 'generative_ai' %}btn-primary{% endif %}" href="?engine=generative_ai">Generative AI</a>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if clusters %}
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "name" "Problem Cluster" %}</th>
+        <th>{% sort_header "recurring" "Recurring" %}</th>
+        {% if show_application_col %}<th>{% sort_header "application" "App" %}</th>{% endif %}
+        {% if show_offering_col %}<th>{% sort_header "offering" "Offering" %}</th>{% endif %}
+        {% if show_country_col %}<th>{% sort_header "country" "Country" %}</th>{% endif %}
+        <th>Engine</th>
+        <th>{% sort_header "trend" "Trend" %}</th>
+        <th>{% sort_header "confidence" "Confidence" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for c in clusters %}
+        <tr>
+          <td>
+            <div class="task-name">{{ c.name }}{% if c.is_problem_candidate %} <span class="problem-ribbon">Candidate</span>{% endif %}{% if c.regional_divergence %} <span class="badge badge-amber" title="A region is rising while the cluster's overall trend isn't — see the cluster detail page for the breakdown">⚠ Regional divergence</span>{% endif %}{% if c.sub_cluster_count %} <span class="badge badge-grey">{{ c.sub_cluster_count }} sub-cluster{{ c.sub_cluster_count|pluralize }}</span>{% endif %}</div>
+            <div class="task-process">{{ c.keywords }}</div>
+          </td>
+          <td>{{ c.recurring_count }}</td>
+          {% if show_application_col %}<td><span class="badge badge-grey">{{ c.top_application }}</span></td>{% endif %}
+          {% if show_offering_col %}<td><span class="badge badge-grey">{{ c.top_offering|default:"—" }}</span></td>{% endif %}
+          {% if show_country_col %}<td><span class="badge badge-grey">{{ c.top_country }}</span></td>{% endif %}
+          <td>{% if c.engine == 'traditional_ml' %}<span class="badge badge-teal">Traditional ML</span>{% else %}<span class="badge badge-violet">Generative AI</span>{% endif %}</td>
+          <td>
+            {% if c.trend == 'rising' %}<span class="trend-up" title="{{ c.trend_reasoning }}">▲ Rising</span>
+            {% elif c.trend == 'falling' %}<span class="trend-down" title="{{ c.trend_reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ c.trend_reasoning }}">● Stable</span>{% endif %}
+          </td>
+          <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:{{ c.color }}"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+          <td><a href="{% url 'clustering:detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+      No clusters yet. <a href="{% url 'clustering:traditional_ml' %}">Run Traditional ML</a> or <a href="{% url 'clustering:generative_ai' %}">Generative AI</a> to detect clusters.
+    </div>
+    {% endif %}
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-top:1px solid var(--border)">
+    <span style="font-size:12px;color:var(--text-muted)">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} · {{ page_obj.paginator.count }} clusters total</span>
+    <div style="display:flex;gap:8px">
+      {% if page_obj.has_previous %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?engine={{ engine_filter }}&sort={{ request.GET.sort }}&dir={{ request.GET.dir }}&page={{ page_obj.previous_page_number }}">← Prev</a>{% endif %}
+      {% if page_obj.has_next %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?engine={{ engine_filter }}&sort={{ request.GET.sort }}&dir={{ request.GET.dir }}&page={{ page_obj.next_page_number }}">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<details class="card help-block">
+  <summary>Help — How is a cluster flagged as a "Problem Candidate"?</summary>
+  <div class="help-body">
+    <p>A cluster earns the <strong>Candidate</strong> ribbon only when <strong>all three</strong> of these hold:</p>
+    <ol>
+      <li><strong>Recurring count</strong> is at or above this run's recurring threshold — enough tickets to be a real pattern, not a one-off.</li>
+      <li><strong>Confidence</strong> is at or above this run's confidence threshold — the cluster is a tight, reliable grouping (not a loose bucket of vaguely-related tickets).</li>
+      <li><strong>Trend</strong> is Rising or Stable — never Falling. A pattern that's already cooling off isn't proposed as a new Problem Record.</li>
+    </ol>
+
+    <h4>Where the thresholds come from</h4>
+    <p>The thresholds aren't fixed numbers — each pipeline run derives its own bar from that run's own distribution of clusters, so "Candidate" always means <em>"stands out from this run's peers,"</em> regardless of dataset size:</p>
+    <ul>
+      <li><strong>Recurring threshold</strong> = the higher of <code>5</code> or the 75th percentile of recurring counts across this run's clusters.</li>
+      <li><strong>Confidence threshold</strong> = the higher of <code>65%</code> or the 50th percentile of confidence scores across this run's clusters.</li>
+    </ul>
+    <p>On a small run with too few clusters to take a meaningful percentile from, it falls back to the fixed 5 / 65% baseline.</p>
+
+    <h4>How confidence itself is calculated</h4>
+    <p>Confidence is a weighted blend of three signals, floored at 30% and capped at 97%:</p>
+    <div class="help-example"><code>confidence = 30 + 67 × (0.40 × size_score + 0.35 × density + 0.25 × recency)</code></div>
+    <ul>
+      <li><strong>size_score</strong> — this cluster's size ÷ the largest cluster's size in the run</li>
+      <li><strong>density</strong> — average membership strength (how tightly HDBSCAN thinks these tickets belong together)</li>
+      <li><strong>recency</strong> — fraction of the cluster's tickets created in the last 90 days</li>
+    </ul>
+
+    <h4>How trend is calculated</h4>
+    <p>Ticket count in the earliest third of the cluster's date range is compared against the latest third (the middle third is excluded to sharpen the contrast): more than 25% higher in the recent window = <strong>Rising</strong>, more than 25% lower = <strong>Falling</strong>, otherwise <strong>Stable</strong>. Hover any trend badge to see the exact counts and dates behind it.</p>
+
+    <h4>Worked example</h4>
+    <div class="help-example">
+      Suppose a run produces clusters with recurring counts <code>[3, 4, 6, 8, 12, 22]</code> and confidence scores <code>[40, 55, 62, 70, 78, 85]</code>.<br><br>
+      <strong>Recurring threshold</strong> = max(5, 75th percentile of counts) = max(5, 12) = <strong>12</strong><br>
+      <strong>Confidence threshold</strong> = max(65, 50th percentile of scores) = max(65, 70) = <strong>70</strong><br><br>
+      A cluster with <strong>18 recurring tickets, 82% confidence, Rising</strong> trend → 18 ≥ 12 ✓, 82% ≥ 70% ✓, Rising ✓ → <strong>flagged as a Problem Candidate</strong>.<br>
+      A cluster with <strong>14 recurring tickets, 72% confidence, Falling</strong> trend → clears both numeric bars, but Falling trend fails the third check → <strong>not</strong> flagged.<br>
+      A cluster with <strong>9 recurring tickets, 90% confidence, Rising</strong> trend → high confidence, but 9 &lt; 12 fails the recurring-count bar → <strong>not</strong> flagged.
+    </div>
+    <p>This status is recomputed fresh every time a pipeline runs — it isn't carried over from a previous run, so re-running with more data (or a narrower dataset scope) can change which clusters qualify.</p>
+  </div>
+</details>
+
+{% endblock %}

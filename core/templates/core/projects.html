@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Projects{% endblock %}
+{% block breadcrumb %}Projects{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Projects</div>
+    <div class="page-subtitle">{{ site_settings.site_name }} is multi-tenant — each project is an isolated workspace with its own tickets, clusters, and KPI targets.</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="info-dot" data-tip="Creates a brand-new, fully separate workspace — its own tickets, uploads and clusters, with nothing shared with your other projects. Use this for a different team, system, or a sandbox to try a new dataset." tabindex="0">i</span>
+    <button class="btn btn-primary" id="newProjectBtn" type="button">New Project</button>
+  </div>
+</div>
+
+{% if projects_list %}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px;color:var(--text-secondary)">
+  <span style="font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted)">Sort by</span>
+  {% sort_header "name" "Name" %}
+  {% sort_header "tickets" "Tickets" %}
+  {% sort_header "created" "Date Created" %}
+</div>
+{% endif %}
+
+<div class="project-grid">
+  {% for p in projects_list %}
+  <a class="project-card {% if current_project.id == p.id %}active{% endif %}" href="{% url 'switch_project' p.id %}">
+    <div class="project-card-head">
+      <div class="project-card-dot" style="background:{{ p.color }}">{{ p.initials }}</div>
+      <div>
+        <div class="project-card-name">{{ p.name }}</div>
+        <div class="project-card-domain">{{ p.domain }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      {% if p.is_sample %}<span class="badge badge-amber">SAMPLE DATA</span>{% endif %}
+      <span class="badge badge-teal">{{ p.cluster_count_ml }} Traditional ML</span>
+      <span class="badge badge-violet">{{ p.cluster_count_genai }} Generative AI</span>
+    </div>
+    <div class="project-card-stats">
+      <div class="project-card-stat"><div class="n">{{ p.ticket_count }}</div><div class="l">Tickets</div></div>
+      <div class="project-card-stat"><div class="n">{{ p.upload_batches.count }}</div><div class="l">Uploads</div></div>
+    </div>
+    {% if current_project.id == p.id %}
+    <div class="project-card-current">✓ Currently Active</div>
+    {% else %}
+    <div class="project-card-current" style="color:var(--text-muted)">Switch to this project →</div>
+    {% endif %}
+  </a>
+  {% empty %}
+  <div style="color:var(--text-muted);font-size:13px">No projects yet — create your first one.</div>
+  {% endfor %}
+</div>
+
+<details class="card help-block" style="margin-top:20px">
+  <summary>Help — Projects (tenants)</summary>
+  <div class="help-body">
+    <p>Each project is a fully isolated workspace — its own tickets, uploads, clusters, embeddings, and settings. Nothing is shared between projects; switching projects (via the switcher in the top bar, or by clicking a card here) changes what every other page in the app shows.</p>
+    <p>Use separate projects for genuinely separate ticket populations — different systems, different teams, or a sandbox for trying a new dataset without touching a real one. A <strong>SAMPLE DATA</strong> badge marks projects seeded with synthetic demo tickets rather than a real upload.</p>
+  </div>
+</details>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <form method="post">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h3>New Project (Tenant)</h3>
+        <span class="modal-close" id="modalClose">✕</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Project Name</label>
+          <input type="text" name="name" placeholder="e.g. Vendor Portal Support" required>
+        </div>
+        <div class="form-field">
+          <label>Domain / System</label>
+          <input type="text" name="domain" placeholder="e.g. VendorPortal · Procurement">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="modalCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('newProjectBtn').addEventListener('click', () => overlay.classList.add('open'));
+  document.getElementById('modalClose').addEventListener('click', () => overlay.classList.remove('open'));
+  document.getElementById('modalCancel').addEventListener('click', () => overlay.classList.remove('open'));
+</script>
+{% endblock %}

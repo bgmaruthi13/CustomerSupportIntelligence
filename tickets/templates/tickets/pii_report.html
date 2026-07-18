@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Sensitive Data Report{% endblock %}
+{% block breadcrumb %}Sensitive Data Report{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Sensitive Data Report — {{ project.name }}</div>
+    <div class="page-subtitle">Pattern-matched (regex/checksum) sensitive-data findings across every upload — masked previews only, never the raw value.</div>
+  </div>
+</div>
+
+{% if not total_count %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No sensitive-data patterns detected in any upload for this project so far.
+</div>
+{% else %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Filter</div></div>
+  <div class="card-body pad">
+    <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-field" style="margin-bottom:0">
+        <label>Type</label>
+        <select name="type">
+          <option value="">All types</option>
+          {% for value, label in pii_types %}
+          <option value="{{ value }}" {% if value == type_filter %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label>Confidence</label>
+        <select name="confidence">
+          <option value="">All confidence levels</option>
+          <option value="high" {% if confidence_filter == "high" %}selected{% endif %}>High</option>
+          <option value="medium" {% if confidence_filter == "medium" %}selected{% endif %}>Medium</option>
+          <option value="low" {% if confidence_filter == "low" %}selected{% endif %}>Low</option>
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label>Context <span class="info-dot" data-tip="Whether this finding is in a column expected to hold a name/email (Expected Identity Field — not a leak), an unmapped column nobody chose to import, or an ordinary mapped free-text field." tabindex="0">i</span></label>
+        <select name="context">
+          <option value="">All contexts</option>
+          {% for value, label in context_choices %}
+          <option value="{{ value }}" {% if value == context_filter %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Apply Filter</button>
+    </form>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+      {% for t in type_counts %}
+      <span class="badge badge-grey">{{ t.label }}: {{ t.count }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Findings</div>
+    <div class="card-subtitle">Showing {{ shown_count }} of {{ total_count }}</div>
+  </div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "risk" "Context" %}</th>
+        <th>{% sort_header "type" "Type" %}</th>
+        <th>{% sort_header "confidence" "Confidence" %}</th>
+        <th>Masked Preview</th>
+        <th>{% sort_header "column" "Column" %}</th>
+        <th>Row / Ticket</th>
+        <th>{% sort_header "detected" "Upload" %}</th>
+      </tr></thead>
+      <tbody>
+        {% for f in findings %}
+        <tr>
+          <td>
+            {% if f.context == 'unmapped_column' %}<span class="badge badge-red">Unmapped Column</span>
+            {% elif f.context == 'free_text' %}<span class="badge badge-amber">Free Text</span>
+            {% else %}<span class="badge badge-grey">Expected Identity</span>{% endif %}
+          </td>
+          <td><span class="badge badge-violet">{{ f.get_pii_type_display }}</span></td>
+          <td>
+            {% if f.confidence == 'high' %}<span class="badge badge-teal">High</span>
+            {% elif f.confidence == 'medium' %}<span class="badge badge-amber">Medium</span>
+            {% else %}<span class="badge badge-grey">Low</span>{% endif %}
+          </td>
+          <td style="font-family:monospace">{{ f.masked_preview }}</td>
+          <td><code>{{ f.source_column }}</code></td>
+          <td>{% if f.ticket %}{{ f.ticket.external_id }}{% else %}{{ f.row_reference }}{% endif %}</td>
+          <td>{{ f.upload_batch.display_name }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How is sensitive data detected?</summary>
+  <div class="help-body">
+    <p>Every column of each uploaded file is scanned — not just the columns you chose to map — since an unmapped column is exactly the data nobody chose to import and therefore nobody's watching. Detection is pattern matching and checksum validation (Luhn for cards, mod-97 for IBAN), not AI — no LLM, no external API call.</p>
+    <p><strong>Context</strong> is what separates a real leak from noise: a name or email in a column mapped to "Reported By"/"Assigned To" is <strong>Expected Identity</strong> — that's what the field is for, not a surprise. The same pattern in an <strong>Unmapped Column</strong> (data nobody chose to import) or a <strong>Free Text</strong> field (like description) is worth a closer look — those sort first by default.</p>
+    <p><strong>High confidence</strong> (email, IBAN, card) passed a real mathematical checksum. <strong>Medium</strong> (phone) used a well-tested parsing library but still guesses a region for numbers without a country code. <strong>Low</strong> (bank account number, address) has no universal format at all and is best-effort — expect some false positives, especially account numbers, which can't be reliably distinguished from ticket/order IDs by pattern alone.</p>
+    <p>Only a masked preview is ever stored or shown — never the raw matched value.</p>
+  </div>
+</details>
+
+{% endblock %}

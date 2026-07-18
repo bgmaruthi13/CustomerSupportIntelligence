@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}{{ cluster.name }}{% endblock %}
+{% block breadcrumb %}Problem Clusters › {{ cluster.name }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    {% if cluster.parent %}
+    <a href="{% url 'clustering:detail' cluster.parent.id %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">‹ Back to parent cluster: {{ cluster.parent.name }}</a>
+    {% else %}
+    <a href="{% url 'clustering:list' %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Problem Clusters</a>
+    {% endif %}
+    <div class="page-title" style="margin-top:6px">{{ cluster.name }}{% if cluster.is_problem_candidate %} <span class="problem-ribbon">Problem Candidate</span>{% endif %}{% if cluster.parent %} <span class="badge badge-grey">Sub-cluster</span>{% endif %}</div>
+    <div class="page-subtitle">{{ project.name }} · {{ cluster.get_engine_display }} · {{ cluster.recurring_count }} recurring tickets{% if cluster.source_description %} · from {{ cluster.source_description }}{% endif %}</div>
+  </div>
+  {% if can_drill_down %}
+  <form method="post" action="{% url 'clustering:drill_down' cluster.id %}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+    {% csrf_token %}
+    <div class="form-field" style="margin-bottom:0">
+      <label style="font-size:11px">Engine</label>
+      <select name="engine">
+        <option value="traditional_ml" {% if cluster.engine == 'traditional_ml' %}selected{% endif %}>Traditional ML</option>
+        <option value="generative_ai" {% if cluster.engine == 'generative_ai' %}selected{% endif %}>Generative AI</option>
+      </select>
+    </div>
+    <div class="form-field" style="margin-bottom:0">
+      <label style="font-size:11px">Granularity</label>
+      <select name="granularity">
+        {% for value, label in granularity_choices %}
+        <option value="{{ value }}" {% if value == "fine" %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <span class="info-dot" style="margin-bottom:9px" data-tip="Re-clusters just this group's {{ cluster.recurring_count }} tickets into smaller, more specific sub-groups — useful when a cluster is broad and you want to see what's really inside it. Running this again replaces any existing sub-clusters." tabindex="0">i</span>
+    <button type="submit" class="btn btn-primary">Drill Down</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="dashboard-grid">
+  <div style="display:flex;flex-direction:column;gap:20px">
+
+    {% if sub_clusters %}
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">Sub-clusters</div>
+          <span class="info-dot" data-tip="More specific groups found by re-clustering just this cluster's own tickets — click one to see its own members and drill down further if needed." tabindex="0">i</span>
+        </div>
+        <div class="card-subtitle">From drilling down into this cluster</div>
+      </div>
+      <div class="card-body">
+        <table class="task-table">
+          <thead><tr><th>{% sort_header "name" "Cluster" "subclusters" %}</th><th>{% sort_header "recurring" "Recurring" "subclusters" %}</th><th>Engine</th><th>{% sort_header "trend" "Trend" "subclusters" %}</th><th>{% sort_header "confidence" "Confidence" "subclusters" %}</th><th></th></tr></thead>
+          <tbody>
+            {% for sc in sub_clusters %}
+            <tr>
+              <td><div class="task-name">{{ sc.name }}</div><div class="task-process">{{ sc.keywords }}</div></td>
+              <td>{{ sc.recurring_count }}</td>
+              <td>{% if sc.engine == 'traditional_ml' %}<span class="badge badge-teal">Traditional ML</span>{% else %}<span class="badge badge-violet">Generative AI</span>{% endif %}</td>
+              <td>
+                {% if sc.trend == 'rising' %}<span class="trend-up">▲ Rising</span>
+                {% elif sc.trend == 'falling' %}<span class="trend-down">▼ Falling</span>
+                {% else %}<span class="trend-flat">● Stable</span>{% endif %}
+              </td>
+              <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ sc.confidence }}%;background:{{ sc.color }}"></div></div><span>{{ sc.confidence|floatformat:0 }}%</span></div></td>
+              <td><a href="{% url 'clustering:detail' sc.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Recurrence by Month</div></div>
+      <div class="chart-card"><canvas id="monthChart" height="90"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Recurrence by Week</div></div>
+      <div class="chart-card"><canvas id="weekChart" height="90"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Member Tickets</div><div class="card-subtitle">Top 200 by similarity</div></div>
+      <div class="card-body">
+        <table class="task-table">
+          <thead><tr><th>Ticket</th><th>{% sort_header "title" "Title" "members" %}</th><th>{% sort_header "similarity" "Similarity" "members" %}</th><th>{% sort_header "country" "Country" "members" %}</th><th>{% sort_header "created" "Created" "members" %}</th><th></th></tr></thead>
+          <tbody>
+            {% for m in members %}
+            <tr>
+              <td class="task-name">{{ m.ticket.external_id }}</td>
+              <td>{{ m.ticket.title|truncatechars:70 }}</td>
+              <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ m.similarity }}%;background:{{ cluster.color }}"></div></div><span>{{ m.similarity|floatformat:0 }}%</span></div></td>
+              <td><span class="badge badge-grey">{{ m.ticket.country }}</span></td>
+              <td style="color:var(--text-muted)">{{ m.ticket.created_at|date:"d M Y" }}</td>
+              <td><a href="{% url 'clustering:similar_tickets' m.ticket.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Find Similar →</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Cluster Signal</div></div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Engine</span>{% if cluster.engine == 'traditional_ml' %}<span class="badge badge-teal">Traditional ML</span>{% else %}<span class="badge badge-violet">Generative AI</span>{% endif %}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Recurring Incidents</span><span style="font-weight:700">{{ cluster.recurring_count }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Confidence Score</span><span style="font-weight:700;color:{{ cluster.color }}">{{ cluster.confidence|floatformat:0 }}%</span></div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Trend</span>
+            {% if cluster.trend == 'rising' %}<span class="trend-up" title="{{ cluster.trend_reasoning }}">▲ Rising</span>
+            {% elif cluster.trend == 'falling' %}<span class="trend-down" title="{{ cluster.trend_reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ cluster.trend_reasoning }}">● Stable</span>{% endif %}
+          </div>
+          {% if cluster.trend_reasoning %}<div style="font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.5">{{ cluster.trend_reasoning }}</div>{% endif %}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Application</span><span class="badge badge-grey">{{ cluster.top_application }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Offering</span><span class="badge badge-grey">{{ cluster.top_offering|default:"—" }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Country</span><span class="badge badge-grey">{{ cluster.top_country }}</span></div>
+        {% if cluster.source_description %}
+        <div style="padding-top:10px;border-top:1px solid var(--border)">
+          <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Source Dataset</span>
+          <div style="font-size:12px;color:var(--text-primary);margin-top:3px">{{ cluster.source_description }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if cluster.regional_trends %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Regional Trend Breakdown</div>
+        {% if cluster.regional_divergence %}<span class="badge badge-amber">⚠ Divergence</span>{% endif %}
+      </div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:12px">
+        {% if cluster.regional_divergence %}
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:0">At least one region below is rising even though this cluster's overall trend is <strong>{{ cluster.get_trend_display }}</strong> — a problem that can hide inside a cluster that looks fine in aggregate.</p>
+        {% endif %}
+        {% for r in cluster.regional_trends %}
+        <div style="{% if not forloop.last %}padding-bottom:12px;border-bottom:1px solid var(--border){% endif %}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="badge badge-grey">{{ r.country }}</span>
+            {% if r.trend == 'rising' %}<span class="trend-up" title="{{ r.reasoning }}">▲ Rising</span>
+            {% elif r.trend == 'falling' %}<span class="trend-down" title="{{ r.reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ r.reasoning }}">● Stable</span>{% endif %}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5">{{ r.count }} ticket{{ r.count|pluralize }} — {{ r.reasoning }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Keyword Contributors</div></div>
+      <div class="card-body pad" style="display:flex;flex-wrap:wrap;gap:8px">
+        {% for kw in keyword_list %}<span class="badge badge-blue">{{ kw }}</span>{% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Recurrence by Country</div></div>
+      <div class="chart-card"><canvas id="countryChart" height="140"></canvas></div>
+    </div>
+
+    {% if by_offering_json != "[]" %}
+    <div class="card">
+      <div class="card-header"><div class="card-title">Recurrence by Offering</div></div>
+      <div class="chart-card"><canvas id="offeringChart" height="140"></canvas></div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Verdict</div></div>
+      <div class="card-body pad">
+        {% if cluster.is_problem_candidate %}
+        <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6"><strong style="color:var(--red)">Recommended for Problem Record.</strong> This cluster has {{ cluster.recurring_count }} recurring incidents with {{ cluster.confidence|floatformat:0 }}% confidence and a {{ cluster.trend }} trend — it meets the auto-recommend threshold.</p>
+        {% else %}
+        <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">Below the Problem Record threshold for now. Monitor for growth in recurrence or confidence before escalating.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">Resolution</div>
+          <span class="info-dot" data-tip="This app never calls an LLM API. Instead: build a prompt below, paste it into your own Microsoft Copilot chat, then paste Copilot's answer back into the notes box to save it against this cluster." tabindex="0">i</span>
+        </div>
+      </div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        {% if cluster.resolution_notes %}
+        <div style="padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
+            {% if cluster.resolution_source == 'copilot_assisted' %}AI-suggested via Copilot{% else %}Analyst-authored{% endif %}
+            — added by {{ cluster.resolution_added_by.username|default:"unknown" }} on {{ cluster.resolution_added_at|date:"d M Y" }}
+          </div>
+          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6">{{ cluster.resolution_notes }}</div>
+        </div>
+        {% endif %}
+
+        <div>
+          <button type="button" class="btn btn-outline" id="copyPromptBtn" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Copies a prompt built from this cluster's data to your clipboard — nothing is sent anywhere by this app. Paste it into Copilot Desktop or VS Code Copilot Chat, then paste the response back below.</p>
+          <div id="copyPromptFallback" style="display:none;margin-top:8px">
+            <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>
+            <textarea id="copyPromptFallbackText" readonly rows="6" style="width:100%;font-size:11px;font-family:monospace" onclick="this.select()"></textarea>
+          </div>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_resolution">
+          <div class="form-field">
+            <label>Resolution notes</label>
+            <textarea name="resolution_notes" rows="4" style="width:100%">{{ cluster.resolution_notes }}</textarea>
+          </div>
+          <div class="form-field" style="display:flex;gap:14px;font-size:12.5px">
+            <label style="margin:0;display:flex;align-items:center;gap:5px"><input type="radio" name="resolution_source" value="copilot_assisted" {% if cluster.resolution_source != 'manual' %}checked{% endif %}> Pasted from Copilot</label>
+            <label style="margin:0;display:flex;align-items:center;gap:5px"><input type="radio" name="resolution_source" value="manual" {% if cluster.resolution_source == 'manual' %}checked{% endif %}> My own notes</label>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Save Resolution Notes</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<details class="card help-block">
+  <summary>Help — Understanding this cluster</summary>
+  <div class="help-body">
+    <ul>
+      <li><strong>Confidence Score</strong> — a blend of cluster size relative to the run's largest cluster, membership density (how tightly HDBSCAN thinks these tickets belong together), and how recent the tickets are. Higher = more reliable grouping.</li>
+      <li><strong>Trend</strong> — compares ticket count in the earliest third of this cluster's date range against the latest third. Hover the trend badge to see the exact counts and windows compared.</li>
+      <li><strong>Top Application / Top Offering / Top Country</strong> — the single most common value among this cluster's member tickets (Offering counts each value on a multi-valued ticket separately).</li>
+      <li><strong>Verdict</strong> — restates whether this cluster currently clears the Problem Candidate bar. See the Help section on the <a href="{% url 'clustering:list' %}">Problem Clusters</a> list page for the full logic and a worked example.</li>
+    </ul>
+    <p>Member Tickets are sorted by similarity — the tickets HDBSCAN is most confident belong in this cluster appear first.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const copilotPromptText = "{{ copilot_prompt|escapejs }}";
+  const copyPromptBtn = document.getElementById('copyPromptBtn');
+  const copyPromptFallback = document.getElementById('copyPromptFallback');
+  const copyPromptFallbackText = document.getElementById('copyPromptFallbackText');
+
+  function flashCopied() {
+    const original = copyPromptBtn.textContent;
+    copyPromptBtn.textContent = 'Copied!';
+    setTimeout(() => { copyPromptBtn.textContent = original; }, 1800);
+  }
+
+  // execCommand is deprecated but is the only copy path available outside a
+  // secure context (HTTPS/localhost) — this app is commonly reached over
+  // plain HTTP on an internal hostname/IP, where navigator.clipboard is
+  // undefined entirely.
+  function legacyCopy(text) {
+    const helper = document.createElement('textarea');
+    helper.value = text;
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (err) {
+      ok = false;
+    }
+    document.body.removeChild(helper);
+    return ok;
+  }
+
+  function showManualFallback() {
+    copyPromptFallbackText.value = copilotPromptText;
+    copyPromptFallback.style.display = 'block';
+    copyPromptBtn.textContent = 'Copy failed — select text below';
+  }
+
+  if (copyPromptBtn) {
+    copyPromptBtn.addEventListener('click', () => {
+      if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(copilotPromptText).then(flashCopied, () => {
+          if (!legacyCopy(copilotPromptText)) showManualFallback(); else flashCopied();
+        });
+      } else if (legacyCopy(copilotPromptText)) {
+        flashCopied();
+      } else {
+        showManualFallback();
+      }
+    });
+  }
+
+  const monthData = {{ by_month_json|safe }};
+  new Chart(document.getElementById('monthChart'), {
+    type: 'bar',
+    data: { labels: monthData.map(d => d.label), datasets: [{ label: 'Tickets', data: monthData.map(d => d.count), backgroundColor: '{{ cluster.color }}' }] },
+    options: { plugins: { legend: { display: false } } }
+  });
+
+  const weekData = {{ by_week_json|safe }};
+  new Chart(document.getElementById('weekChart'), {
+    type: 'line',
+    data: { labels: weekData.map(d => d.label), datasets: [{ label: 'Tickets', data: weekData.map(d => d.count), borderColor: '{{ cluster.color }}', backgroundColor: '{{ cluster.color }}22', fill: true, tension: 0.3 }] },
+    options: { plugins: { legend: { display: false } } }
+  });
+
+  const countryData = {{ by_country_json|safe }};
+  new Chart(document.getElementById('countryChart'), {
+    type: 'doughnut',
+    data: { labels: countryData.map(d => d.label), datasets: [{ data: countryData.map(d => d.count), backgroundColor: ['#4f46e5','#0e8c86','#d97706','#6c4fd8','#2563eb','#16a34a','#dc2626'] }] },
+  });
+
+  const offeringData = {{ by_offering_json|safe }};
+  if (offeringData.length && document.getElementById('offeringChart')) {
+    new Chart(document.getElementById('offeringChart'), {
+      type: 'bar',
+      data: { labels: offeringData.map(d => d.label), datasets: [{ label: 'Tickets', data: offeringData.map(d => d.count), backgroundColor: '{{ cluster.color }}' }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Cluster Explorer{% endblock %}
+{% block breadcrumb %}Cluster Explorer{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Cluster Explorer — {{ project.name }}</div>
+    <div class="page-subtitle">2D/3D visualization of clustered tickets. Each point is one ticket; color represents its cluster; grey points are unclustered noise.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="viz-toolbar">
+    <div class="viz-toggle-group">
+      <a href="?engine=traditional_ml"><button class="{% if engine == 'traditional_ml' %}active{% endif %}" type="button">Traditional ML</button></a>
+      <a href="?engine=generative_ai"><button class="{% if engine == 'generative_ai' %}active{% endif %}" type="button">Generative AI</button></a>
+    </div>
+    <div class="viz-toggle-group">
+      <button id="btn2d" type="button" class="active">2D</button>
+      <button id="btn3d" type="button">3D</button>
+    </div>
+    <div style="margin-left:auto;font-size:12.5px;color:var(--text-muted)">
+      {% if is_sampled %}Showing a random sample of {{ point_count }} of {{ total_point_count }} points{% else %}{{ point_count }} points plotted{% endif %}
+    </div>
+  </div>
+
+  {% if is_sampled %}
+  <div style="padding:10px 20px;background:var(--amber-bg);color:var(--amber);font-size:12.5px;border-bottom:1px solid var(--border)">
+    This engine has {{ total_point_count }} clustered tickets — rendering all of them would overload the browser, so this view samples {{ point_count }} for visualization. Cluster stats elsewhere (Problem Clusters, dashboard) use the full dataset.
+  </div>
+  {% endif %}
+
+  {% if has_data %}
+  <div id="clusterPlot"></div>
+  <div class="viz-legend" id="vizLegend"></div>
+  {% else %}
+  <div style="padding:60px;text-align:center;color:var(--text-muted)">
+    No clustering results yet for this engine. Run
+    {% if engine == 'traditional_ml' %}<a href="{% url 'clustering:traditional_ml' %}">Traditional ML</a>{% else %}<a href="{% url 'clustering:generative_ai' %}">Generative AI</a>{% endif %}
+    first.
+  </div>
+  {% endif %}
+</div>
+
+<details class="card help-block">
+  <summary>Help — Reading this view</summary>
+  <div class="help-body">
+    <ul>
+      <li>Each point is one ticket. Points sharing a color belong to the same cluster; hover any point to see its ticket ID, title, and cluster name.</li>
+      <li><strong>Grey points</strong> are unclustered noise — tickets HDBSCAN couldn't confidently group with anything else.</li>
+      <li><strong>2D / 3D</strong> — both are the same underlying clustering, just projected down to 2 or 3 dimensions (via UMAP) purely for visualization. Position here is cosmetic and never feeds back into the actual clustering or confidence scoring.</li>
+      <li>Switch between <strong>Traditional ML</strong> and <strong>Generative AI</strong> at the top to compare how each engine grouped the same tickets — they're computed independently, so the same ticket can land in different-looking neighborhoods on each.</li>
+      <li>On a large dataset, this view samples a subset of points so the browser doesn't choke — cluster counts and stats everywhere else (Problem Clusters, Dashboard) always use the full dataset regardless of what's sampled here.</li>
+    </ul>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if has_data %}
+<script>
+  const points = {{ points_json|safe }};
+  const palette = ['#4f46e5','#0e8c86','#d97706','#6c4fd8','#2563eb','#16a34a','#dc2626','#db2777','#0891b2','#7c3aed','#65a30d','#ea580c'];
+
+  const clusterNames = [...new Set(points.map(p => p.cluster))];
+  const colorMap = {};
+  let colorIdx = 0;
+  clusterNames.forEach(name => {
+    const isNoise = points.find(p => p.cluster === name).is_noise;
+    colorMap[name] = isNoise ? '#cbd5e1' : palette[colorIdx++ % palette.length];
+  });
+
+  // Legend: cap to the largest clusters in the sample — showing all N cluster names
+  // (there can be hundreds on a large dataset) would be unreadable and, combined with
+  // one Plotly trace per cluster, was heavy enough to hang the tab. One trace total +
+  // a capped legend keeps this fast regardless of cluster count.
+  const MAX_LEGEND = 18;
+  const countByCluster = {};
+  points.forEach(p => { countByCluster[p.cluster] = (countByCluster[p.cluster] || 0) + 1; });
+  const legendNames = clusterNames.filter(n => n !== 'Unclustered / Noise')
+    .sort((a, b) => countByCluster[b] - countByCluster[a])
+    .slice(0, MAX_LEGEND);
+
+  const legend = document.getElementById('vizLegend');
+  let legendHtml = legendNames.map(name =>
+    `<div class="viz-legend-item"><span class="viz-legend-dot" style="background:${colorMap[name]}"></span>${name} (${countByCluster[name]})</div>`
+  ).join('');
+  if (countByCluster['Unclustered / Noise']) {
+    legendHtml += `<div class="viz-legend-item"><span class="viz-legend-dot" style="background:#cbd5e1"></span>Unclustered / Noise (${countByCluster['Unclustered / Noise']})</div>`;
+  }
+  if (clusterNames.length > legendNames.length + 1) {
+    legendHtml += `<div class="viz-legend-item" style="color:var(--text-muted)">+ ${clusterNames.length - legendNames.length - 1} more clusters (see hover)</div>`;
+  }
+  legend.innerHTML = legendHtml;
+
+  // A Plotly scatter has no text content for assistive tech to read — an
+  // aria-label with the top clusters plus a visually-hidden table with the
+  // full per-cluster breakdown covers both a quick summary and complete data.
+  const plotEl = document.getElementById('clusterPlot');
+  plotEl.setAttribute('role', 'img');
+  const topForLabel = legendNames.slice(0, 3).map(n => `${n} (${countByCluster[n]})`).join(', ');
+  plotEl.setAttribute('aria-label', `Scatter plot of ${points.length} tickets across ${clusterNames.length} clusters. Largest: ${topForLabel}.`);
+
+  const srTable = document.createElement('table');
+  srTable.className = 'sr-only';
+  srTable.innerHTML = '<caption>Cluster sizes</caption><thead><tr><th>Cluster</th><th>Tickets</th></tr></thead>';
+  const srTbody = document.createElement('tbody');
+  clusterNames.slice().sort((a, b) => countByCluster[b] - countByCluster[a]).forEach(name => {
+    const tr = document.createElement('tr');
+    const nameCell = document.createElement('td');
+    nameCell.textContent = name;
+    const countCell = document.createElement('td');
+    countCell.textContent = countByCluster[name];
+    tr.append(nameCell, countCell);
+    srTbody.appendChild(tr);
+  });
+  srTable.appendChild(srTbody);
+  plotEl.insertAdjacentElement('afterend', srTable);
+
+  // Single trace for all points (color per-point) — building one trace per cluster
+  // doesn't scale past a handful of clusters and was the actual cause of the hang.
+  function buildTraces(is3d) {
+    const trace = {
+      x: points.map(p => p.x),
+      y: points.map(p => p.y),
+      mode: 'markers',
+      marker: {
+        size: is3d ? 4 : 7,
+        color: points.map(p => colorMap[p.cluster]),
+        opacity: points.map(p => p.is_noise ? 0.35 : 0.85),
+      },
+      text: points.map(p => `${p.ticket_id}: ${p.title}<br>Cluster: ${p.cluster}`),
+      hovertemplate: '%{text}<extra></extra>',
+      type: is3d ? 'scatter3d' : 'scattergl',
+    };
+    if (is3d) trace.z = points.map(p => p.z);
+    return [trace];
+  }
+
+  const layoutBase = {
+    margin: { l: 10, r: 10, t: 10, b: 10 },
+    showlegend: false,
+    paper_bgcolor: 'white',
+    plot_bgcolor: 'white',
+  };
+
+  let is3d = false;
+  function render() {
+    const layout = is3d
+      ? { ...layoutBase, scene: { xaxis: { title: '' }, yaxis: { title: '' }, zaxis: { title: '' } } }
+      : { ...layoutBase, xaxis: { zeroline: false, showgrid: true, gridcolor: '#f1f5f9' }, yaxis: { zeroline: false, showgrid: true, gridcolor: '#f1f5f9' } };
+    Plotly.newPlot('clusterPlot', buildTraces(is3d), layout, { responsive: true, displaylogo: false });
+  }
+
+  document.getElementById('btn2d').addEventListener('click', () => {
+    is3d = false;
+    document.getElementById('btn2d').classList.add('active');
+    document.getElementById('btn3d').classList.remove('active');
+    render();
+  });
+  document.getElementById('btn3d').addEventListener('click', () => {
+    is3d = true;
+    document.getElementById('btn3d').classList.add('active');
+    document.getElementById('btn2d').classList.remove('active');
+    render();
+  });
+
+  render();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}Platform Guide{% endblock %}
+{% block breadcrumb %}Platform Guide{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Platform Guide</div>
+    <div class="page-subtitle">One page covering the full picture: how Correlate AI actually works today, every feature with a worked example, the two clustering engines, what's been assumed, what it honestly can't do yet, and the original proposal's targets and rollout plan for context.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad" style="display:flex;flex-wrap:wrap;gap:8px">
+    <a href="#pipeline" class="badge badge-blue" style="text-decoration:none">1. How It Works</a>
+    <a href="#features" class="badge badge-green" style="text-decoration:none">2. Every Feature, with Examples</a>
+    <a href="#engines" class="badge badge-teal" style="text-decoration:none">3. The Two Engines</a>
+    <a href="#assumptions" class="badge badge-amber" style="text-decoration:none">4. Assumptions Made</a>
+    <a href="#limitations" class="badge badge-red" style="text-decoration:none">5. Known Limitations</a>
+    <a href="#kpis" class="badge badge-violet" style="text-decoration:none">6. Live KPIs &amp; Targets</a>
+    <a href="#roadmap" class="badge badge-grey" style="text-decoration:none">7. Plan &amp; Rollout Roadmap</a>
+  </div>
+</div>
+
+<div class="card" id="pipeline" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">1. How It Works — End to End</div></div>
+  <div class="pipeline-flow">
+    <div class="pipeline-step"><div class="step-num" style="background:var(--primary)">1</div><div><div class="step-label">Upload &amp; Map</div><div class="step-desc">Drop in a CSV/Excel export from any ITSM tool, match its columns to fields the app understands, choose a date format, and confirm — nothing is imported until you review the mapping.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--primary)">2</div><div><div class="step-label">Automatic Sensitive-Data Scan</div><div class="step-desc">Every uploaded row is scanned for card numbers, IBANs, phone numbers and similar patterns as it comes in — see the Sensitive Data Report.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--teal)">3</div><div><div class="step-label">Run a Clustering Engine (A and/or B)</div><div class="step-desc">Traditional ML and Generative AI each group similar tickets independently — results are kept separate per engine, so running one never overwrites the other.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">4</div><div><div class="step-label">Review Problem Clusters</div><div class="step-desc">Each cluster carries a confidence score, a trend (rising/falling/stable), and — where the data supports it — a regional breakdown. High-confidence, recurring, rising clusters get flagged as Problem Candidates.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">5</div><div><div class="step-label">Drill Down (optional)</div><div class="step-desc">Re-cluster just one cluster's own tickets into finer sub-groups when a group looks too broad to act on directly.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--amber)">6</div><div><div class="step-label">Ticket Lookup Tools</div><div class="step-desc">Ask Correlate (semantic search), Categorize Tickets (queue suggestion), and Possible Duplicates all run on demand, independent of the main clustering runs.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Capture a Resolution</div><div class="step-desc">Build a prompt from a cluster's data, paste it into your own Microsoft Copilot chat (nothing is sent by this app), then save the response back to the cluster as its resolution notes.</div></div></div>
+  </div>
+</div>
+
+<div class="card" id="features" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">2. Every Feature, with Examples</div></div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Data Management</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Upload Data</td><td>Import a CSV/Excel ticket export and map its columns to fields the app understands, over a 3-step wizard.</td><td>Upload a ServiceNow export with columns "Number", "Short description", "Opened" — map them to Ticket ID, Title, and Created Date, then confirm to import.</td></tr>
+        <tr><td class="dim">Data Analysis</td><td>Explore what you've uploaded before running any AI — counts, trends by date, breakdowns by country/app.</td><td>See that 340 of 500 uploaded tickets came from the "EMEA" region, with a spike in the last two weeks of March.</td></tr>
+        <tr><td class="dim">Sensitive Data Report</td><td>Every upload is automatically scanned for card numbers, IBANs, and phone numbers; review what was flagged.</td><td>Ticket INC0045821 is flagged because its description contains what looks like a 16-digit payment card number.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Clustering Engines</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Traditional ML <span class="badge badge-teal">A</span></td><td>TF-IDF + HDBSCAN groups tickets that share vocabulary — fast, explainable, fully on-prem.</td><td>Run on 1,200 incidents → get a "VPN Login Failures" cluster of 84 tickets at 91% confidence.</td></tr>
+        <tr><td class="dim">Generative AI <span class="badge badge-violet">B</span></td><td>A local sentence-embedding model groups tickets by meaning, not just shared words.</td><td>"Batch job stuck" and "nightly process not finishing" land in the same cluster despite sharing zero keywords.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Problem Insights</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Problem Clusters</td><td>Ranked list of recurring ticket groups, each with a confidence score, trend, and (where the data supports it) a regional breakdown.</td><td>"Email Delivery Delays" shows a Rising trend at 88% confidence and gets flagged as a Problem Candidate.</td></tr>
+        <tr><td class="dim">Cluster Explorer</td><td>2D/3D scatter plot of every cluster's tickets, positioned by similarity.</td><td>Spot that two clusters that look separate in the list are actually close together on the map, hinting they should be reviewed together.</td></tr>
+        <tr><td class="dim">Drill Down</td><td>Re-cluster one cluster's own tickets into finer sub-groups, from its detail page.</td><td>A broad "Login Issues" cluster of 200 tickets drills down into "VPN Timeout", "MFA Token Expired", and "Password Reset Loop".</td></tr>
+        <tr><td class="dim">Resolution Notes</td><td>Build a prompt from a cluster's data, paste it into your own Copilot chat, and save the answer back to the cluster.</td><td>Generate a prompt for "Email Delivery Delays", paste it into Microsoft Copilot Chat, then save the suggested root cause as the cluster's resolution notes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Ticket Lookup Tools (on-demand, one-off lookups)</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Ask Correlate</td><td>Semantic search over every ticket, by a plain-English query.</td><td>Search "invoice generation errors" and get 12 ranked tickets back, including ones that never use the word "invoice".</td></tr>
+        <tr><td class="dim">Find Similar Tickets</td><td>From any ticket in a search result, jump straight to tickets like it.</td><td>Open ticket INC0032211, click "Find Similar", and see 6 other tickets describing the same underlying issue.</td></tr>
+        <tr><td class="dim">Quick Triage</td><td>Paste a new ticket's text (on the Dashboard) before it's even logged, and see the closest matching cluster.</td><td>Paste "user can't login, account locked after password reset" → instantly matched to "Account Lockout After Reset".</td></tr>
+        <tr><td class="dim">Categorize Tickets</td><td>Suggests a support queue for untriaged tickets by nearest-neighbor vote against already-labeled ones.</td><td>An unlabeled ticket gets suggested queue "Network Support", with 4 of its 5 nearest neighbors agreeing (80%).</td></tr>
+        <tr><td class="dim">Possible Duplicates</td><td>Sweeps the whole project for near-identical ticket pairs reported close together in time.</td><td>Two tickets opened 2 hours apart by the same reporter, 96% similar text, get flagged as a possible duplicate for review.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Workspace</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Projects</td><td>Fully isolated workspaces — separate tickets, uploads, and clusters per project, switchable from the top bar.</td><td>Keep "Payments Platform" tickets and "HR Portal" tickets in separate projects so their clusters never mix.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="engines" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">3. The Two Clustering Engines</div></div>
+  <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px">Both are genuinely AI — Traditional ML (statistical/classical) and Generative AI (embedding-based) are both branches of the same AI family tree. The choice is about cost, infrastructure, and semantic depth, not "AI vs. no AI." Both run <strong>live and fully on this machine today</strong> — neither is waiting on external API access.</div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th>Dimension</th><th class="col-a">Approach A · Traditional ML</th><th class="col-b">Approach B · Generative AI</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">How it works</td><td>TF-IDF word-frequency vectors + HDBSCAN density clustering</td><td>Local sentence-embedding model (all-MiniLM-L6-v2) + cosine-similarity clustering</td></tr>
+        <tr><td class="dim">Semantic understanding</td><td>Moderate — needs vocabulary/stem overlap</td><td>Strong — understands paraphrasing and context</td></tr>
+        <tr><td class="dim">Cost</td><td>One-time build cost, no per-call fees</td><td>No per-call fees either — runs a local model, not a hosted API</td></tr>
+        <tr><td class="dim">Data privacy</td><td>Fully on-prem</td><td>Fully on-prem — a hosted Azure OpenAI endpoint remains an optional future upgrade, not a requirement</td></tr>
+        <tr><td class="dim">Explainability</td><td>Transparent, rule-based — easier to justify to an auditor</td><td>Less transparent (embedding-space "black box")</td></tr>
+        <tr><td class="dim">Best fit</td><td>Fast, explainable first pass; good for audit-sensitive review</td><td>Primary recommendation for ticket text, since reporters reword the same issue differently — semantic matching catches what keyword overlap misses</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary)">Practical guidance: run <strong>Traditional ML</strong> first as a fast baseline, then <strong>Generative AI</strong> for the semantic pass. Both are safe to run on the same data — nothing is overwritten between engines, only within the same engine on a re-run.</div>
+</div>
+
+<div class="card" id="assumptions" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">4. Assumptions Made</div></div>
+  <div class="card-body pad">
+    <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
+      <li>Uploaded data has at least one genuinely free-text field (a title/description) — clustering quality depends directly on how descriptive that text is; a file of only short codes will cluster poorly.</li>
+      <li>Queue, offering, application, country, and similar fields are treated as optional. When your source data doesn't map to them, the features that depend on them (queue categorization, regional trend breakdown, app filters) simply have nothing to show — this isn't an error state.</li>
+      <li>A single date format applies consistently to every row within one uploaded file, chosen once during the mapping step.</li>
+      <li>At least 8 tickets are needed before any cluster can form. Small datasets, or a narrow "Run on" scope (a single upload, a single offering), may legitimately produce zero clusters.</li>
+      <li>The local sentence-embedding model is treated as a reasonable stand-in for a hosted Azure OpenAI embeddings endpoint — good for general English support-ticket text, but not fine-tuned to any organization's specific acronyms or internal system names.</li>
+      <li>Sensitive-data scanning (regex + Luhn/IBAN checksum + phone-number parsing) is assumed to catch the common, well-structured formats — card numbers, IBANs, phone numbers — not a certified DLP/PII product covering every possible sensitive-data shape.</li>
+      <li>A ticket pair is assumed to be a likely duplicate only when similarity is very high (≥92%) <em>and</em> close in time (7 days) <em>and</em> shares a reporter or application — high text similarity alone is treated as insufficient, since two distinct-but-related issues can still read as similar.</li>
+      <li>Queue-suggestion voting trusts whatever queue values already exist in your uploaded data as ground truth — if those source labels are inconsistent, suggestions inherit that inconsistency.</li>
+      <li>Resolution capture assumes a human in the loop: this app builds the prompt, but a person pastes it into their own Copilot chat and pastes the answer back — there's no server-side call to any LLM anywhere in this build.</li>
+      <li>SQLite is assumed sufficient for this scale of use (single team, moderate ticket volumes); a production multi-user rollout would need PostgreSQL, per the original proposal.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" id="limitations" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">5. Known Limitations</div></div>
+  <div class="card-body pad">
+    <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
+      <li><strong>No server-side LLM generation anywhere.</strong> Ask Correlate and Categorize Tickets rank/vote over existing tickets (retrieval, not generation); Copilot-assisted resolution requires a manual copy/paste into an external chat tool this app doesn't control.</li>
+      <li><strong>Re-running an engine replaces its previous top-level results</strong>, not merges with them — by design, so a stale run never lingers, but it means any manual edits tied to the old clusters (like resolution notes) don't automatically carry over to the new ones if the cluster boundaries shift.</li>
+      <li><strong>Resolution notes are tied to a specific cluster row.</strong> If you reset or re-run a pipeline and the cluster IDs change, previously saved notes stay on the old (now-gone) cluster rather than following the "same" issue to its new cluster — this is the clearest current gap between "notes exist" and "notes are durable."</li>
+      <li><strong>Queue suggestions need enough labeled data to vote from.</strong> With very few or heavily skewed existing queue values, suggestions get thin and less trustworthy — treat low-agreement suggestions as a starting guess, not a verdict.</li>
+      <li><strong>No integration back into an external ITSM tool.</strong> Promoting a Problem Candidate into an actual ServiceNow/Jira Problem record is a manual step outside this app today — nothing here creates or updates records elsewhere.</li>
+      <li><strong>Everything is user-triggered.</strong> There's no background scheduler re-running pipelines or rebuilding indexes as new tickets arrive — you decide when to re-scan, re-cluster, or rebuild.</li>
+      <li><strong>Clipboard-copy conveniences (e.g. "Copy Prompt for Copilot") depend on browser clipboard permissions</strong> — locked-down or automated browser environments may block them; paste manually if so.</li>
+      <li><strong>No granular in-project permissions yet.</strong> Projects isolate data from each other, but anyone with access to a project can see and edit everything inside it — there's no per-user role restriction within a single project.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" id="kpis" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">6. Live KPIs &amp; Original Targets</div></div>
+  {% if project %}
+  <div class="card-body pad">
+    <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px">Live snapshot — {{ project.name }}</div>
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:12.5px;font-weight:600">Manual Analysis Effort (estimated)</span>
+        <span style="font-size:12px;color:{% if manual_effort_pct <= 40 %}var(--green){% else %}var(--amber){% endif %};font-weight:600">{{ manual_effort_pct }}% (target &lt;40%)</span>
+      </div>
+      <div style="height:6px;background:#f1f5f9;border-radius:3px"><div style="width:{{ manual_effort_pct }}%;height:100%;background:{% if manual_effort_pct <= 40 %}var(--green){% else %}var(--amber){% endif %};border-radius:3px"></div></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:12.5px;font-weight:600">Average Cluster Confidence</span>
+        <span style="font-size:12px;color:{% if avg_confidence >= 80 %}var(--green){% else %}var(--amber){% endif %};font-weight:600">{{ avg_confidence }}%</span>
+      </div>
+      <div style="height:6px;background:#f1f5f9;border-radius:3px"><div style="width:{{ avg_confidence }}%;height:100%;background:{% if avg_confidence >= 80 %}var(--green){% else %}var(--amber){% endif %};border-radius:3px"></div></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:12.5px;font-weight:600">Low-Confidence Cluster Rate (false-positive proxy)</span>
+        <span style="font-size:12px;color:{% if false_positive_proxy <= 20 %}var(--green){% else %}var(--red){% endif %};font-weight:600">{{ false_positive_proxy }}% (target &lt;15–20%)</span>
+      </div>
+      <div style="height:6px;background:#f1f5f9;border-radius:3px"><div style="width:{{ false_positive_proxy }}%;height:100%;background:{% if false_positive_proxy <= 20 %}var(--green){% else %}var(--red){% endif %};border-radius:3px"></div></div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card-body">
+    <div style="padding:12px 20px 0;font-size:11.5px;color:var(--text-muted)">Illustrative targets from the original proposal — not measured from your data, kept for reference.</div>
+    <table class="data-table">
+      <thead><tr><th>KPI</th><th>Baseline</th><th>Target</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Manual Problem Analysis Effort</td><td>100%</td><td>&lt;40%</td></tr>
+        <tr><td class="dim">Problem Detection Time</td><td>4–8 Hours</td><td>&lt;1 Hour</td></tr>
+        <tr><td class="dim">Recurring Incident Identification</td><td>Manual</td><td>Automated</td></tr>
+        <tr><td class="dim">Problem Creation Accuracy</td><td>N/A</td><td>&gt;75–80% (A) / &gt;85% (B)</td></tr>
+        <tr><td class="dim">False Positive Rate</td><td>N/A</td><td>&lt;20% (A) / &lt;15% (B)</td></tr>
+        <tr><td class="dim">MTTR Reduction</td><td>Current State</td><td>20–30% Improvement</td></tr>
+        <tr><td class="dim">Reopened Incident Volume</td><td>Current State</td><td>25–40% Reduction</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">
+    <div style="padding:0 20px 4px;font-size:11.5px;color:var(--text-muted)">Risks &amp; mitigations from the original proposal — general categories worth being aware of for a rollout of this kind.</div>
+    <table class="data-table">
+      <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Poor ticket descriptions</td><td>Data cleansing and feature/prompt engineering</td></tr>
+        <tr><td class="dim">Insufficient historical data</td><td>Use 6–12 months of incident history</td></tr>
+        <tr><td class="dim">High false positives</td><td>Human approval workflow before Problem Record creation</td></tr>
+        <tr><td class="dim">Security concerns</td><td>On-prem Traditional ML (A) or private Azure OpenAI deployment (B)</td></tr>
+        <tr><td class="dim">User adoption issues</td><td>Pilot phase and training</td></tr>
+        <tr><td class="dim">Weaker paraphrase detection (A only)</td><td>Strong text preprocessing (lemmatization, domain stemming, synonym lists)</td></tr>
+        <tr><td class="dim">API cost/availability (B only)</td><td>Budget planning, fallback to Approach A if access delayed</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="roadmap" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">7. Original Plan &amp; Rollout Roadmap</div></div>
+  <div class="card-body pad" style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px">
+    <div class="kpi-card blue"><div class="kpi-label">Timeline</div><div class="kpi-value">5.5<span style="font-size:16px;font-weight:500"> wks</span></div><div class="kpi-trend">7 phases, original proposal</div></div>
+    <div class="kpi-card violet"><div class="kpi-label">Total Effort</div><div class="kpi-value">28<span style="font-size:16px;font-weight:500"> MD</span></div><div class="kpi-trend">Either approach</div></div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th>Phase</th><th>Duration</th><th>Effort (MD)</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">1. Discovery &amp; Assessment</td><td>3 Days</td><td>3</td></tr>
+        <tr><td class="dim">2. Data Engineering &amp; Prep</td><td>4 Days</td><td>4</td></tr>
+        <tr><td class="dim">3. Model/Clustering &amp; Pattern Engine Build</td><td>6 Days</td><td>6</td></tr>
+        <tr><td class="dim">4. Problem Recommendation Engine</td><td>4 Days</td><td>4</td></tr>
+        <tr><td class="dim">5. Workflow Automation &amp; Integration</td><td>3 Days</td><td>3</td></tr>
+        <tr><td class="dim">6. Testing &amp; Validation</td><td>4 Days</td><td>4</td></tr>
+        <tr><td class="dim">7. Production Deployment &amp; Hypercare</td><td>2 Days</td><td>2</td></tr>
+        <tr><td class="dim">Contingency &amp; Optimization</td><td>2 Days</td><td>2</td></tr>
+        <tr class="total-row"><td>Total</td><td>~5.5 weeks</td><td>28 MD</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-phase">
+      <div class="timeline-marker"><div class="timeline-dot" style="background:var(--blue)">1</div><div class="timeline-line"></div></div>
+      <div class="timeline-content"><h4>Pilot</h4><div class="duration">4 Weeks</div><p>One application, 6 months ticket history, recommendations only — no auto-creation yet.</p></div>
+    </div>
+    <div class="timeline-phase">
+      <div class="timeline-marker"><div class="timeline-dot" style="background:var(--amber)">2</div><div class="timeline-line"></div></div>
+      <div class="timeline-content"><h4>Controlled Rollout</h4><div class="duration">4 Weeks</div><p>Multiple applications, automated suggestions, dashboard rollout to wider ITSM team.</p></div>
+    </div>
+    <div class="timeline-phase">
+      <div class="timeline-marker"><div class="timeline-dot" style="background:var(--green)">3</div></div>
+      <div class="timeline-content"><h4>Enterprise Rollout</h4><div class="duration">6–8 Weeks</div><p>Full ITSM integration, automated Problem creation, SLA/owner assignment, RCA knowledge integration.</p></div>
+    </div>
+  </div>
+
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <div style="padding:16px 20px 10px;font-size:12.5px;font-weight:700;color:var(--text-primary)">Delivered beyond the original scope</div>
+    <div class="recent-list">
+      <div class="recent-item"><div class="recent-icon" style="background:var(--primary)">✓</div><div><div class="recent-name">Ask Correlate, Quick Triage, Find Similar</div><div class="recent-meta">Semantic search over tickets, no LLM required</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--violet)">✓</div><div><div class="recent-name">Queue categorization, duplicate detection</div><div class="recent-meta">Nearest-neighbor tooling built on the same embeddings</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--teal)">✓</div><div><div class="recent-name">Sensitive data (P2) scanning, regional trend breakdown</div><div class="recent-meta">Governance and deeper cluster insight</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--amber)">✓</div><div><div class="recent-name">Drill-down sub-clustering, Copilot-assisted resolution notes</div><div class="recent-meta">Deeper analysis and human-in-the-loop knowledge capture</div></div></div>
+    </div>
+  </div>
+
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <div style="padding:16px 20px 10px;font-size:12.5px;font-weight:700;color:var(--text-primary)">Realistic next steps</div>
+    <div class="recent-list">
+      <div class="recent-item"><div class="recent-icon" style="background:var(--primary)">1</div><div><div class="recent-name">Pilot on a real ITSM export</div><div class="recent-meta">Validate against your own ticket data, not just the sample project</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--teal)">2</div><div><div class="recent-name">Roll out to the wider ITSM team</div><div class="recent-meta">Get adoption on the tools already built, not just the pipelines</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--violet)">3</div><div><div class="recent-name">Evaluate Azure OpenAI only if needed</div><div class="recent-meta">The local model already covers semantic clustering — only pursue this if quality genuinely falls short at larger scale</div></div></div>
+    </div>
+  </div>
+</div>
+
+<details class="card help-block">
+  <summary>Help — How to use this page</summary>
+  <div class="help-body">
+    <p>This page replaces four separate reference pages (Comparison, Project Plan, KPIs &amp; Risks, Rollout Roadmap) with one, so there's a single place to point a colleague or your CTO for the full picture. Sections 1–5 (<strong>How It Works</strong>, <strong>Every Feature</strong>, <strong>The Two Engines</strong>, <strong>Assumptions</strong>, <strong>Limitations</strong>) describe this build honestly, as it runs today. Sections 6–7 keep the original proposal's illustrative targets and rollout plan for context — clearly labeled as such, not measured output.</p>
+    <p>Use the pill links at the top to jump straight to a section.</p>
+  </div>
+</details>
+
+{% endblock %}

@@ -1,0 +1,24 @@
+# Pinned for Python 3.12.10 (amd64). A single `pip install -r requirements.txt`
+# installs everything, including the CPU-only build of torch — no separate
+# install step needed. Verified with a full dependency resolve (pip 25.0.1)
+# against both PyPI and the extra index below with zero conflicts.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.12.1+cpu
+Django==6.0.7
+pandas==3.0.3
+numpy==2.4.6
+openpyxl==3.1.5
+scikit-learn==1.9.0
+hdbscan==0.8.44
+sentence-transformers==5.6.0
+umap-learn==0.5.12
+python-dateutil==2.9.0.post0
+phonenumbers==9.0.34
+nltk==3.10.0
+
+# --- Production runtime ---------------------------------------------------
+python-dotenv==1.2.2
+dj-database-url==3.1.2
+whitenoise==6.12.0
+waitress==3.0.2

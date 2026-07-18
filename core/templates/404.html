@@ -1,0 +1,18 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site_settings.site_name|default:"Correlate AI" }} — Not Found</title>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body style="overflow:auto">
+<div class="auth-wrap">
+  <div class="auth-box" style="text-align:center">
+    <div class="auth-title">Page not found</div>
+    <p class="auth-sub">The page you're looking for doesn't exist or may have moved.</p>
+    <a class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" href="/">← Back to Dashboard</a>
+  </div>
+</div>
+</body>
+</html>

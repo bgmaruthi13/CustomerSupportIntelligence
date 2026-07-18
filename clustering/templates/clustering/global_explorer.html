@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Global Explorer{% endblock %}
+{% block breadcrumb %}Global Clustering › 2D/3D Explorer{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Global Explorer — Cross-Project Map</div>
+    <div class="page-subtitle">Every ticket from the last global run, plotted together. Switch to "By Project" to see where different projects' tickets land in the same neighborhood — that overlap is the visual version of a cross-project intersection.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="viz-toolbar">
+    <div class="viz-toggle-group">
+      <a href="?engine=traditional_ml"><button class="{% if engine == 'traditional_ml' %}active{% endif %}" type="button">Traditional ML</button></a>
+      <a href="?engine=generative_ai"><button class="{% if engine == 'generative_ai' %}active{% endif %}" type="button">Generative AI</button></a>
+    </div>
+    <div class="viz-toggle-group">
+      <button id="btnByCluster" type="button" class="active">Color: By Cluster</button>
+      <button id="btnByProject" type="button">Color: By Project</button>
+    </div>
+    <div class="viz-toggle-group">
+      <button id="btn2d" type="button" class="active">2D</button>
+      <button id="btn3d" type="button">3D</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-left:8px;cursor:pointer">
+      <input type="checkbox" id="highlightIntersections"> Highlight cross-project intersections
+    </label>
+    <div style="margin-left:auto;font-size:12.5px;color:var(--text-muted)">
+      {% if is_sampled %}Showing a random sample of {{ point_count }} of {{ total_point_count }} points{% else %}{{ point_count }} points plotted{% endif %}
+    </div>
+  </div>
+
+  {% if is_sampled %}
+  <div style="padding:10px 20px;background:var(--amber-bg);color:var(--amber);font-size:12.5px;border-bottom:1px solid var(--border)">
+    This engine has {{ total_point_count }} clustered tickets — rendering all of them would overload the browser, so this view samples {{ point_count }} for visualization. Cluster stats on Global Clustering use the full dataset.
+  </div>
+  {% endif %}
+
+  {% if has_data %}
+  <div id="clusterPlot"></div>
+  <div class="viz-legend" id="vizLegend"></div>
+  {% else %}
+  <div style="padding:60px;text-align:center;color:var(--text-muted)">
+    No global clustering results yet for this engine. Run a pass on <a href="{% url 'clustering:global_clustering' %}">Global Clustering</a> first.
+  </div>
+  {% endif %}
+</div>
+
+<details class="card help-block">
+  <summary>Help — Reading this view</summary>
+  <div class="help-body">
+    <ul>
+      <li>Each point is one ticket from the last global run. Position (via UMAP) is cosmetic — it never feeds back into clustering or confidence scoring.</li>
+      <li><strong>Color: By Cluster</strong> — same as the per-project Cluster Explorer: points sharing a color belong to the same cluster.</li>
+      <li><strong>Color: By Project</strong> — points are colored by which project the ticket came from instead. Two colors occupying the same neighborhood on the map is the visual signature of a cross-project intersection: the same kind of issue, worded similarly, coming from more than one team.</li>
+      <li><strong>Highlight cross-project intersections</strong> — boosts the size and opacity of every point that belongs to a cluster with 2+ projects (dims everything else), regardless of which color mode is active, so those points are easy to pick out.</li>
+      <li>Hover any point for its ticket ID, title, cluster, and project.</li>
+    </ul>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if has_data %}
+<script>
+  const gPoints = {{ points_json|safe }};
+  const palette = ['#4f46e5','#0e8c86','#d97706','#6c4fd8','#2563eb','#16a34a','#dc2626','#db2777','#0891b2','#7c3aed','#65a30d','#ea580c'];
+
+  const clusterNames = [...new Set(gPoints.map(p => p.cluster))];
+  const clusterColorMap = {};
+  let cIdx = 0;
+  clusterNames.forEach(name => {
+    const isNoise = gPoints.find(p => p.cluster === name).is_noise;
+    clusterColorMap[name] = isNoise ? '#cbd5e1' : palette[cIdx++ % palette.length];
+  });
+
+  const projectNames = [...new Set(gPoints.map(p => p.project))];
+  const projectColorMap = {};
+  let pIdx = 0;
+  projectNames.forEach(name => { projectColorMap[name] = palette[pIdx++ % palette.length]; });
+
+  const MAX_LEGEND = 18;
+  const countByCluster = {};
+  gPoints.forEach(p => { countByCluster[p.cluster] = (countByCluster[p.cluster] || 0) + 1; });
+  const countByProject = {};
+  gPoints.forEach(p => { countByProject[p.project] = (countByProject[p.project] || 0) + 1; });
+
+  const legendEl = document.getElementById('vizLegend');
+  function renderLegend(byProject) {
+    if (byProject) {
+      legendEl.innerHTML = projectNames.map(name =>
+        `<div class="viz-legend-item"><span class="viz-legend-dot" style="background:${projectColorMap[name]}"></span>${name} (${countByProject[name]})</div>`
+      ).join('');
+      return;
+    }
+    const legendNames = clusterNames.filter(n => n !== 'Unclustered / Noise')
+      .sort((a, b) => countByCluster[b] - countByCluster[a])
+      .slice(0, MAX_LEGEND);
+    let html = legendNames.map(name =>
+      `<div class="viz-legend-item"><span class="viz-legend-dot" style="background:${clusterColorMap[name]}"></span>${name} (${countByCluster[name]})</div>`
+    ).join('');
+    if (countByCluster['Unclustered / Noise']) {
+      html += `<div class="viz-legend-item"><span class="viz-legend-dot" style="background:#cbd5e1"></span>Unclustered / Noise (${countByCluster['Unclustered / Noise']})</div>`;
+    }
+    if (clusterNames.length > legendNames.length + 1) {
+      html += `<div class="viz-legend-item" style="color:var(--text-muted)">+ ${clusterNames.length - legendNames.length - 1} more clusters (see hover)</div>`;
+    }
+    legendEl.innerHTML = html;
+  }
+
+  // A Plotly scatter has no text content for assistive tech to read — an
+  // aria-label with the top clusters/projects plus visually-hidden tables
+  // with the full breakdown covers both a quick summary and complete data.
+  const gPlotEl = document.getElementById('clusterPlot');
+  gPlotEl.setAttribute('role', 'img');
+  const intersectionCount = gPoints.filter(p => p.is_intersection).length;
+  gPlotEl.setAttribute('aria-label',
+    `Scatter plot of ${gPoints.length} tickets across ${clusterNames.length} clusters and ` +
+    `${projectNames.length} projects. ${intersectionCount} points belong to a cross-project ` +
+    `intersection cluster.`);
+
+  function buildSrTable(caption, names, counts) {
+    const table = document.createElement('table');
+    table.className = 'sr-only';
+    table.innerHTML = `<caption>${caption}</caption><thead><tr><th>Name</th><th>Tickets</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+    names.slice().sort((a, b) => counts[b] - counts[a]).forEach(name => {
+      const tr = document.createElement('tr');
+      const nameCell = document.createElement('td');
+      nameCell.textContent = name;
+      const countCell = document.createElement('td');
+      countCell.textContent = counts[name];
+      tr.append(nameCell, countCell);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+  }
+  gPlotEl.insertAdjacentElement('afterend', buildSrTable('Tickets by project', projectNames, countByProject));
+  gPlotEl.insertAdjacentElement('afterend', buildSrTable('Tickets by cluster', clusterNames, countByCluster));
+
+  function buildTraces(is3d, byProject, highlight) {
+    const colorFor = p => byProject ? projectColorMap[p.project] : clusterColorMap[p.cluster];
+    const trace = {
+      x: gPoints.map(p => p.x),
+      y: gPoints.map(p => p.y),
+      mode: 'markers',
+      marker: {
+        size: gPoints.map(p => {
+          if (!highlight) return is3d ? 4 : 7;
+          return p.is_intersection ? (is3d ? 7 : 11) : (is3d ? 2 : 4);
+        }),
+        color: gPoints.map(colorFor),
+        opacity: gPoints.map(p => {
+          if (highlight) return p.is_intersection ? 0.95 : 0.12;
+          return p.is_noise ? 0.35 : 0.85;
+        }),
+        line: highlight ? { color: gPoints.map(p => p.is_intersection ? '#201f1e' : 'rgba(0,0,0,0)'), width: gPoints.map(p => p.is_intersection ? 1 : 0) } : undefined,
+      },
+      text: gPoints.map(p => `${p.ticket_id}: ${p.title}<br>Cluster: ${p.cluster}<br>Project: ${p.project}${p.is_intersection ? '<br><b>Cross-project intersection</b>' : ''}`),
+      hovertemplate: '%{text}<extra></extra>',
+      type: is3d ? 'scatter3d' : 'scattergl',
+    };
+    if (is3d) trace.z = gPoints.map(p => p.z);
+    return [trace];
+  }
+
+  const layoutBase = {
+    margin: { l: 10, r: 10, t: 10, b: 10 },
+    showlegend: false,
+    paper_bgcolor: 'white',
+    plot_bgcolor: 'white',
+  };
+
+  let is3d = false;
+  let byProject = false;
+  let highlight = false;
+
+  function render() {
+    const layout = is3d
+      ? { ...layoutBase, scene: { xaxis: { title: '' }, yaxis: { title: '' }, zaxis: { title: '' } } }
+      : { ...layoutBase, xaxis: { zeroline: false, showgrid: true, gridcolor: '#f1f5f9' }, yaxis: { zeroline: false, showgrid: true, gridcolor: '#f1f5f9' } };
+    Plotly.newPlot('clusterPlot', buildTraces(is3d, byProject, highlight), layout, { responsive: true, displaylogo: false });
+    renderLegend(byProject);
+  }
+
+  document.getElementById('btn2d').addEventListener('click', () => {
+    is3d = false;
+    document.getElementById('btn2d').classList.add('active');
+    document.getElementById('btn3d').classList.remove('active');
+    render();
+  });
+  document.getElementById('btn3d').addEventListener('click', () => {
+    is3d = true;
+    document.getElementById('btn3d').classList.add('active');
+    document.getElementById('btn2d').classList.remove('active');
+    render();
+  });
+  document.getElementById('btnByCluster').addEventListener('click', () => {
+    byProject = false;
+    document.getElementById('btnByCluster').classList.add('active');
+    document.getElementById('btnByProject').classList.remove('active');
+    render();
+  });
+  document.getElementById('btnByProject').addEventListener('click', () => {
+    byProject = true;
+    document.getElementById('btnByProject').classList.add('active');
+    document.getElementById('btnByCluster').classList.remove('active');
+    render();
+  });
+  document.getElementById('highlightIntersections').addEventListener('change', (e) => {
+    highlight = e.target.checked;
+    render();
+  });
+
+  render();
+</script>
+{% endif %}
+{% endblock %}

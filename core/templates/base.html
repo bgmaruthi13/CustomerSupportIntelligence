@@ -1,0 +1,162 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site_settings.site_name }} — {% block title %}Dashboard{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <a class="sidebar-logo" href="{% url 'dashboard' %}">
+    <div class="logo-icon">{{ site_settings.site_name|slice:":1" }}</div>
+    <div class="logo-text">{{ site_settings.site_name }}</div>
+  </a>
+
+  <nav>
+  <div class="sidebar-section-label">Overview</div>
+  <a class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+    <span>Dashboard</span>
+  </a>
+
+  <div class="sidebar-section-label">Data Management</div>
+  <a class="nav-item {% if active_nav == 'upload' %}active{% endif %}" href="{% url 'tickets:upload' %}">
+    <span>Upload Data</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'eda' %}active{% endif %}" href="{% url 'tickets:eda' %}">
+    <span>Data Analysis</span>
+  </a>
+
+  <div class="sidebar-section-label">Clustering Engines</div>
+  <a class="nav-item {% if active_nav == 'traditional-ml' %}active{% endif %}" href="{% url 'clustering:traditional_ml' %}">
+    <span>Traditional ML</span>
+    <span class="nav-tag a">A</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'generative-ai' %}active{% endif %}" href="{% url 'clustering:generative_ai' %}">
+    <span>Generative AI</span>
+    <span class="nav-tag b">B</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'clustering-settings' %}active{% endif %}" href="{% url 'clustering:settings' %}">
+    <span>Clustering Settings</span>
+  </a>
+
+  {% if current_project.cluster_count %}
+  <div class="sidebar-section-label">Problem Insights</div>
+  <a class="nav-item {% if active_nav == 'clusters' %}active{% endif %}" href="{% url 'clustering:list' %}">
+    <span>Problem Clusters</span>
+    <span class="nav-badge">{{ current_project.cluster_count }}</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'explorer' %}active{% endif %}" href="{% url 'clustering:explorer' %}">
+    <span>Cluster Explorer</span>
+  </a>
+  {% endif %}
+
+  <div class="sidebar-section-label">Cross-Project</div>
+  <a class="nav-item {% if active_nav == 'global-clustering' %}active{% endif %}" href="{% url 'clustering:global_clustering' %}">
+    <span>Global Clustering</span>
+  </a>
+
+  <div class="sidebar-section-label">Ticket Lookup Tools</div>
+  <a class="nav-item {% if active_nav == 'pii-report' %}active{% endif %}" href="{% url 'tickets:sensitive_data_report' %}">
+    <span>Sensitive Data Report</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'search' %}active{% endif %}" href="{% url 'clustering:search' %}">
+    <span>Ask Correlate</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'categorize' %}active{% endif %}" href="{% url 'clustering:categorize' %}">
+    <span>Categorize Tickets</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'duplicates' %}active{% endif %}" href="{% url 'clustering:duplicates' %}">
+    <span>Possible Duplicates</span>
+  </a>
+
+  <div class="sidebar-section-label">Reference</div>
+  <a class="nav-item muted {% if active_nav == 'how-it-works' %}active{% endif %}" href="{% url 'how_it_works' %}">
+    <span>Platform Guide</span>
+  </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="nav-item" style="width:100%;text-align:left;background:none;border:none;font-family:inherit;cursor:pointer">
+        <span>Sign Out</span>
+      </button>
+    </form>
+  </div>
+</aside>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <button class="topbar-toggle" id="sidebarToggle">☰</button>
+    <div class="topbar-breadcrumb">
+      <span>{{ site_settings.site_name }}</span>
+      <span class="chevron"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></span>
+      <span class="current">{% block breadcrumb %}Dashboard{% endblock %}</span>
+    </div>
+
+    {% if current_project %}
+    <div class="project-switcher">
+      <button class="project-switcher-btn" id="pswBtn" type="button">
+        <span class="project-switcher-dot" style="background:{{ current_project.color }}">{{ current_project.initials }}</span>
+        <span>{{ current_project.name }}</span>
+        {% if current_project.is_sample %}<span class="badge badge-amber" style="padding:1px 7px;font-size:9.5px">SAMPLE</span>{% endif %}
+        <span class="project-switcher-caret">▾</span>
+      </button>
+      <div class="project-dropdown" id="pswDropdown">
+        <div class="project-dropdown-label">Switch Project (Tenant)</div>
+        {% for p in user_projects %}
+        <a class="project-dropdown-item {% if p.id == current_project.id %}active{% endif %}" href="{% url 'switch_project' p.id %}">
+          <span class="dot" style="background:{{ p.color }}">{{ p.initials }}</span>
+          <span class="meta">
+            <div class="pname">{{ p.name }}{% if p.is_sample %} <span class="badge badge-amber" style="padding:1px 6px;font-size:9px">SAMPLE</span>{% endif %}</div>
+            <div class="pdesc">{{ p.domain }} · {{ p.ticket_count }} tickets</div>
+          </span>
+          {% if p.id == current_project.id %}<span class="check">✓</span>{% endif %}
+        </a>
+        {% endfor %}
+        <a class="project-dropdown-footer" href="{% url 'projects' %}">
+          <span>Manage Projects</span>
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="flex:1"></div>
+
+    <div class="topbar-right">
+      <a class="topbar-btn text" href="{% url 'projects' %}">Projects</a>
+      <div class="avatar" title="{{ user.username }}">{{ user.username|slice:":2"|upper }}</div>
+    </div>
+  </header>
+
+  <main class="content">
+    {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if not current_project and active_nav != "projects" %}
+    <div class="card" style="padding:32px;text-align:center">
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">No project yet</div>
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Create your first project (tenant) to start uploading tickets and running clustering.</p>
+      <a class="btn btn-primary" href="{% url 'projects' %}">Create Project</a>
+    </div>
+    {% else %}
+    {% block content %}{% endblock %}
+    {% endif %}
+  </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="{% static 'js/chrome.js' %}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

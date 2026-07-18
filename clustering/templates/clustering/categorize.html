@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Categorize Tickets{% endblock %}
+{% block breadcrumb %}Categorize Tickets{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Categorize Tickets — {{ project.name }}</div>
+    <div class="page-subtitle">Suggests which queue an untriaged ticket belongs to, by finding its nearest already-labeled neighbors — not an LLM classifier, an explainable nearest-neighbor vote.</div>
+  </div>
+  {% if suggestions %}
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="info-dot" data-tip="Instantly assigns a queue to every ticket below whose 5 nearest neighbors agreed on that queue at least {{ bulk_apply_threshold_pct }}% of the time. Lower-agreement suggestions are left for you to accept one by one." tabindex="0">i</span>
+    <form method="post" onsubmit="return confirm('Apply all suggestions with ≥{{ bulk_apply_threshold_pct }}% neighbor agreement shown on this page?');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="bulk_apply">
+      <button type="submit" class="btn btn-primary">Apply All High-Agreement (&ge;{{ bulk_apply_threshold_pct }}%)</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% if needs_index %}
+<div class="card" style="padding:32px;text-align:center">
+  <div style="font-size:15px;font-weight:700;margin-bottom:8px">No search index yet</div>
+  <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Queue suggestions need at least some tickets with a known queue and an embedding to compare against. Run <strong>Generative AI</strong> clustering first, or build the index directly.</p>
+  <a class="btn btn-primary" href="{% url 'clustering:search' %}">Go to Ask Correlate</a>
+</div>
+{% elif untriaged_count == 0 %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  Every ticket in this project already has a queue assigned.
+</div>
+{% elif not suggestions %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  {{ untriaged_count }} untriaged ticket{{ untriaged_count|pluralize }}, but no labeled tickets yet to suggest from — at least some tickets need a real queue value (mapped from your source data) before suggestions are possible.
+</div>
+{% else %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary)">
+    {{ untriaged_count }} untriaged ticket{{ untriaged_count|pluralize }} total — showing {{ shown_count }}.
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Suggested Queues</div></div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "ticket" "Ticket" %}</th>
+        <th>{% sort_header "queue" "Suggested Queue" %}</th>
+        <th>{% sort_header "agreement" "Agreement" %} <span class="info-dot" data-tip="How many of the 5 most similar past tickets share this queue. Higher = more confident the suggestion is correct." tabindex="0">i</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for s in suggestions %}
+        <tr>
+          <td>
+            <div class="task-name">{{ s.ticket.external_id }}</div>
+            <div class="task-process">{{ s.ticket.title|truncatechars:70 }}</div>
+          </td>
+          <td><span class="badge badge-violet">{{ s.suggested_queue }}</span></td>
+          <td>
+            <div class="conf-bar-wrap">
+              <div class="conf-bar"><div class="conf-bar-fill" style="width:{% widthratio s.agreement_fraction 1 100 %}%;background:{% if s.agreement_fraction >= 0.6 %}var(--teal){% else %}var(--amber){% endif %}"></div></div>
+              <span>{{ s.agree_count }} of {{ s.neighbor_count }} — {% widthratio s.agreement_fraction 1 100 %}%</span>
+            </div>
+          </td>
+          <td>
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="apply_one">
+              <input type="hidden" name="ticket_id" value="{{ s.ticket.id }}">
+              <input type="hidden" name="queue_value" value="{{ s.suggested_queue }}">
+              <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Accept →</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How are queue suggestions made?</summary>
+  <div class="help-body">
+    <p>For each untriaged ticket (queue "Unspecified"), its embedding is compared against every ticket in the project that already has a real queue value — either mapped from your source data's "Assignment Group"/"Queue" column, or a previously accepted suggestion. The 5 nearest neighbors vote, and the majority queue among them is suggested — the "agreement" percentage is literally how many of those 5 agree, not a hidden confidence score.</p>
+    <p>No LLM is involved — this is the same cosine-similarity ranking behind Ask Correlate and Find Similar Tickets, applied to majority-vote a label instead of ranking search results.</p>
+  </div>
+</details>
+
+{% endblock %}

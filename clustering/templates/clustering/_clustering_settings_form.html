@@ -1,0 +1,141 @@
+{% load ticket_extras %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="engine" value="{{ engine }}">
+
+  <div class="dashboard-grid">
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Source</div>
+            <div class="card-subtitle">Fields concatenated (in this order) into the clustering text</div>
+          </div>
+        </div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:8px">
+          {% for field, label, recommended in source_field_choices %}
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+            <input type="checkbox" name="source_fields" value="{{ field }}" {% if field in settings.source_fields %}checked{% endif %}>
+            {{ label }}
+            {% if recommended %}<span class="recommended-tag" title="Usually carries the most clustering signal">RECOMMENDED</span>{% endif %}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Cleanup</div><div class="card-subtitle">Generally safe for both engines</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="normalize_whitespace" {% if settings.normalize_whitespace %}checked{% endif %}> Normalize whitespace (collapse tabs/newlines/runs of spaces)</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="strip_html" {% if settings.strip_html %}checked{% endif %}> Strip HTML tags/entities</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="remove_urls" {% if settings.remove_urls %}checked{% endif %}> Remove URLs</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="remove_emails" {% if settings.remove_emails %}checked{% endif %}> Remove email addresses</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="normalize_unicode" {% if settings.normalize_unicode %}checked{% endif %}> Normalize accents (café → cafe)</label>
+
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="strip_boilerplate" {% if settings.strip_boilerplate %}checked{% endif %}> Strip boilerplate phrases</label>
+            <textarea name="boilerplate_patterns" rows="3" placeholder="This is an automated message from...&#10;regex: Confidential.*Internal Use Only" style="width:100%;margin-top:6px;font-size:12px;font-family:monospace">{{ boilerplate_text }}</textarea>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="strip_ticket_id_patterns" {% if settings.strip_ticket_id_patterns %}checked{% endif %}> Strip ticket-ID patterns</label>
+            <textarea name="ticket_id_patterns" rows="2" placeholder="regex: INC\d{7}&#10;regex: CASE-\d+" style="width:100%;margin-top:6px;font-size:12px;font-family:monospace">{{ ticket_id_text }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Text shape</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="lowercase" {% if settings.lowercase %}checked{% endif %}> Lowercase</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" id="{{ engine }}_keep_only_text" name="keep_only_text" {% if settings.keep_only_text %}checked{% endif %}> Keep only letters (drops numbers and all punctuation)</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+            <input type="checkbox" class="{{ engine }}_shape_toggle" name="remove_special_characters" {% if settings.remove_special_characters %}checked{% endif %} {% if settings.keep_only_text %}disabled{% endif %}> Remove special characters/punctuation
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+            <input type="checkbox" class="{{ engine }}_shape_toggle" name="remove_numbers" {% if settings.remove_numbers %}checked{% endif %} {% if settings.keep_only_text %}disabled{% endif %}> Remove numbers
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Tokens</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="remove_stopwords" {% if settings.remove_stopwords %}checked{% endif %}> Remove stopwords</label>
+          <div class="form-field" style="margin-bottom:0">
+            <label style="font-size:11px">Add to stopword list (comma or newline separated)</label>
+            <input type="text" name="stopwords_add" value="{{ settings.stopwords_add|join:', ' }}" style="width:100%">
+          </div>
+          <div class="form-field" style="margin-bottom:0">
+            <label style="font-size:11px">Exclude from stopword list</label>
+            <input type="text" name="stopwords_exclude" value="{{ settings.stopwords_exclude|join:', ' }}" style="width:100%">
+          </div>
+          <div class="form-field" style="margin-bottom:0">
+            <label style="font-size:11px">Minimum token length (1 = off)</label>
+            <input type="number" name="min_token_length" value="{{ settings.min_token_length }}" min="1" max="10" style="width:100px">
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" name="enable_stemming" {% if settings.enable_stemming %}checked{% endif %}> Enable stemming (failed/failing/fails → one token)</label>
+        </div>
+      </div>
+
+      {% if show_vectorizer %}
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Vectorizer tuning</div>
+            <div class="card-subtitle">Corpus-level statistics, not per-ticket text cleanup</div>
+          </div>
+        </div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <div class="form-field" style="margin-bottom:0">
+            <label style="font-size:11px">Min document frequency — drop terms in fewer than this many tickets</label>
+            <input type="number" name="min_document_frequency" value="{{ settings.min_document_frequency }}" min="1" style="width:100px">
+          </div>
+          <div class="form-field" style="margin-bottom:0">
+            <label style="font-size:11px">Max document frequency — drop terms in more than this fraction of tickets (0-1)</label>
+            <input type="number" name="max_document_frequency" value="{{ settings.max_document_frequency }}" min="0.01" max="1" step="0.01" style="width:100px">
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Save / Preview</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <button type="submit" name="action" value="preview" class="btn btn-outline" style="justify-content:center">Preview on Latest Ticket</button>
+          <button type="submit" name="action" value="save" class="btn btn-primary" style="justify-content:center">Save {{ engine_label }} Settings</button>
+        </div>
+      </div>
+
+      {% if preview and preview_engine == engine %}
+      <div class="card">
+        <div class="card-header"><div class="card-title">Preview — {{ preview.ticket.external_id }}</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Before (concatenated source fields)</div>
+            <div style="font-size:12px;background:var(--neutral-hover);padding:8px;border-radius:var(--radius-md);white-space:pre-wrap">{{ preview.raw_text|default:"—" }}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">After (fed to clustering)</div>
+            <div style="font-size:12px;background:var(--neutral-hover);padding:8px;border-radius:var(--radius-md);white-space:pre-wrap">{{ preview.result_text|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+<script>
+  (function () {
+    var keepOnly = document.getElementById('{{ engine }}_keep_only_text');
+    var others = document.querySelectorAll('.{{ engine }}_shape_toggle');
+    if (!keepOnly) return;
+    keepOnly.addEventListener('change', function () {
+      others.forEach(function (el) { el.disabled = keepOnly.checked; });
+    });
+  })();
+</script>

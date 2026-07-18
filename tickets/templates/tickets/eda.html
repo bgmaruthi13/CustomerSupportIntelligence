@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Data Analysis{% endblock %}
+{% block breadcrumb %}Data Analysis{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Data Analysis — {{ project.name }}</div>
+    <div class="page-subtitle">
+      {% if total %}
+        {{ total }} tickets · {{ earliest|date:"d M Y" }} → {{ latest|date:"d M Y" }} · {{ country_count }} countries · {{ application_count }} applications · {{ offering_count }} offerings
+      {% else %}
+        No tickets yet for this project.
+      {% endif %}
+    </div>
+  </div>
+  <a class="btn btn-outline" href="{% url 'tickets:upload' %}">Upload Data</a>
+</div>
+
+{% if not total %}
+<div class="card"><div class="card-body pad" style="text-align:center;color:var(--text-muted)">Upload ticket data to see trend analysis here.</div></div>
+{% else %}
+
+<div class="kpi-grid">
+  <div class="kpi-card blue"><div class="kpi-label">Total Tickets</div><div class="kpi-value">{{ total }}</div></div>
+  <div class="kpi-card teal"><div class="kpi-label">Countries</div><div class="kpi-value">{{ country_count }}</div></div>
+  <div class="kpi-card violet"><div class="kpi-label">Applications</div><div class="kpi-value">{{ application_count }}</div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Missing Country/App</div><div class="kpi-value">{{ missing_country }}<span style="font-size:14px">/{{ missing_application }}</span></div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Missing Queue/Requested Type</div><div class="kpi-value">{{ missing_queue }}<span style="font-size:14px">/{{ missing_requested_type }}</span></div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Missing Description</div><div class="kpi-value">{{ missing_description }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div class="card-title">Ticket Volume Trend</div>
+    <form method="get" class="eda-filter-bar" style="margin-bottom:0">
+      <select name="granularity" onchange="this.form.submit()">
+        <option value="day" {% if granularity == "day" %}selected{% endif %}>By Day</option>
+        <option value="week" {% if granularity == "week" %}selected{% endif %}>By Week</option>
+        <option value="month" {% if granularity == "month" %}selected{% endif %}>By Month</option>
+        <option value="quarter" {% if granularity == "quarter" %}selected{% endif %}>By Quarter</option>
+      </select>
+    </form>
+  </div>
+  <div class="chart-card"><canvas id="trendChart" height="90"></canvas></div>
+</div>
+
+<div class="dashboard-grid">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Tickets by Country</div></div>
+    <div class="chart-card"><canvas id="countryChart" height="220"></canvas></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">By Status</div></div>
+      <div class="chart-card"><canvas id="statusChart" height="160"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">By Priority</div></div>
+      <div class="chart-card"><canvas id="priorityChart" height="160"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px">
+  <div class="card-header"><div class="card-title">Tickets by Application</div></div>
+  <div class="chart-card"><canvas id="appChart" height="100"></canvas></div>
+</div>
+
+<div class="dashboard-grid" style="margin-top:20px">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Tickets by Queue</div>
+        <div class="card-subtitle">{{ queue_count }} queue{{ queue_count|pluralize }} mapped, excluding Unspecified</div>
+      </div>
+      <a class="card-action" href="{% url 'clustering:categorize' %}">Categorize untriaged →</a>
+    </div>
+    <div class="chart-card"><canvas id="queueChart" height="160"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Tickets by Requested Type</div>
+        <div class="card-subtitle">{{ requested_type_count }} type{{ requested_type_count|pluralize }} mapped, excluding Unspecified</div>
+      </div>
+    </div>
+    <div class="chart-card"><canvas id="requestedTypeChart" height="160"></canvas></div>
+  </div>
+</div>
+
+{% if offering_count %}
+<div class="card" style="margin-top:20px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Tickets by Offering</div>
+      <div class="card-subtitle">A ticket can carry more than one offering — each counts toward every offering it lists.</div>
+    </div>
+    <a class="card-action" href="{% url 'clustering:traditional_ml' %}">Cluster within an offering →</a>
+  </div>
+  <div class="chart-card"><canvas id="offeringChart" height="100"></canvas></div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:20px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Uploaded Data</div>
+      <div class="card-subtitle">Already-imported tickets, as currently stored — not the raw source file.</div>
+    </div>
+    <form method="get" style="margin-bottom:0">
+      <select name="batch" onchange="this.form.submit()">
+        <option value="all" {% if batch_filter == "all" %}selected{% endif %}>All Uploads</option>
+        {% for b in batches %}
+        <option value="{{ b.id }}" {% if batch_filter == b.id|stringformat:"s" %}selected{% endif %}>{{ b.display_name }} ({{ b.created_at|date:"d M Y" }})</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="card-body">
+    {% if data_page %}
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "external_id" "Ticket" %}</th>
+        <th>{% sort_header "title" "Title" %}</th>
+        <th>{% sort_header "created" "Created" %}</th>
+        <th>{% sort_header "country" "Country" %}</th>
+        <th>{% sort_header "application" "Application" %}</th>
+        <th>{% sort_header "status" "Status" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for t in data_page %}
+        <tr>
+          <td class="task-name">{{ t.external_id }}</td>
+          <td>{{ t.title|truncatechars:70 }}</td>
+          <td style="color:var(--text-muted)">{{ t.created_at|date:"d M Y" }}</td>
+          <td><span class="badge badge-grey">{{ t.country }}</span></td>
+          <td><span class="badge badge-grey">{{ t.application }}</span></td>
+          <td>{{ t.status }}</td>
+          <td>{% if t.upload_batch_id %}<a href="{% url 'tickets:mapping' t.upload_batch_id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Edit Mapping</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if data_page.paginator.num_pages > 1 %}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+      <span style="font-size:12px;color:var(--text-muted)">Page {{ data_page.number }} of {{ data_page.paginator.num_pages }} · {{ data_page.paginator.count }} ticket{{ data_page.paginator.count|pluralize }}{% if selected_batch %} in this upload{% endif %}</span>
+      <div style="display:flex;gap:8px">
+        {% if data_page.has_previous %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?batch={{ batch_filter }}&sort={{ request.GET.sort }}&dir={{ request.GET.dir }}&page={{ data_page.previous_page_number }}">← Prev</a>{% endif %}
+        {% if data_page.has_next %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?batch={{ batch_filter }}&sort={{ request.GET.sort }}&dir={{ request.GET.dir }}&page={{ data_page.next_page_number }}">Next →</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div style="text-align:center;color:var(--text-muted);padding:20px">No tickets for this filter.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — Using this page</summary>
+  <div class="help-body">
+    <p>Use this page to sanity-check data quality <strong>before</strong> running clustering — it's a raw look at what actually landed in the database, not a modeled output.</p>
+    <ul>
+      <li><strong>Ticket Volume Trend</strong> — toggle Day/Week/Month/Quarter to see how ticket volume moves over time at different resolutions.</li>
+      <li><strong>By Country / Status / Priority / Application</strong> — straight counts. A value of "Unspecified" or "Unknown" means that field wasn't mapped (or was empty) for those tickets.</li>
+      <li><strong>By Queue / Requested Type</strong> — same straight-count treatment. Queue is the field the <a href="{% url 'clustering:categorize' %}">Categorize Tickets</a> k-NN suggestion feature exists to fill in — a shrinking "Unspecified" bar here reflects that feature's progress on this project.</li>
+      <li><strong>By Offering</strong> — only shown once at least one ticket has an offering value. A ticket tagged with more than one offering (e.g. "SunSystems Support, QA Vision") counts toward <strong>every</strong> offering it lists, not just the first — so bars can sum to more than the total ticket count.</li>
+      <li><strong>Missing Country/App</strong>, <strong>Missing Queue/Requested Type</strong>, and <strong>Missing Description</strong> KPIs — how many tickets fell back to "Unspecified" (or an empty description) for these fields. High numbers here are worth fixing in Map Columns before clustering, since several of these fields feed downstream summaries or the clustering text itself (see Clustering Settings).</li>
+    </ul>
+    <p>Found a data quality issue? Go back to <a href="{% url 'tickets:upload' %}">Upload Data</a> and re-map the affected column, or use <strong>Delete</strong> on a bad upload from the Recent Uploads table.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if total %}
+<script>
+  // A <canvas> chart has no text content of its own, so screen-reader users get
+  // nothing from it by default. This adds a computed aria-label (top values,
+  // for a quick summary) plus a visually-hidden data table right after the
+  // canvas (the full breakdown), for every chart on this page.
+  function describeChart(canvasEl, data, subject) {
+    if (!canvasEl || !data.length) return;
+    const top = [...data].sort((a, b) => b.count - a.count).slice(0, 3);
+    let summary = subject + ': ' + top.map(d => `${d.label} at ${d.count}`).join(', ');
+    if (data.length > 3) summary += `, and ${data.length - 3} more`;
+    canvasEl.setAttribute('role', 'img');
+    canvasEl.setAttribute('aria-label', summary);
+
+    const table = document.createElement('table');
+    table.className = 'sr-only';
+    table.innerHTML = '<caption>' + subject + '</caption><thead><tr><th>Label</th><th>Count</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    data.forEach(d => {
+      const tr = document.createElement('tr');
+      const labelCell = document.createElement('td');
+      labelCell.textContent = d.label;
+      const countCell = document.createElement('td');
+      countCell.textContent = d.count;
+      tr.append(labelCell, countCell);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    canvasEl.insertAdjacentElement('afterend', table);
+  }
+
+  const palette = ['#4f46e5','#0e8c86','#d97706','#6c4fd8','#2563eb','#16a34a','#dc2626','#db2777','#0891b2','#7c3aed','#65a30d','#ea580c'];
+
+  const trendData = {{ volume_trend_json|safe }};
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: trendData.map(d => d.label),
+      datasets: [{ label: 'Tickets', data: trendData.map(d => d.count), borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,0.08)', fill: true, tension: 0.3 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+  describeChart(document.getElementById('trendChart'), trendData, 'Ticket volume trend');
+
+  const countryData = {{ by_country_json|safe }};
+  new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: { labels: countryData.map(d => d.label), datasets: [{ label: 'Tickets', data: countryData.map(d => d.count), backgroundColor: palette }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+  describeChart(document.getElementById('countryChart'), countryData, 'Tickets by country');
+
+  const statusData = {{ by_status_json|safe }};
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: { labels: statusData.map(d => d.label), datasets: [{ data: statusData.map(d => d.count), backgroundColor: palette }] },
+  });
+  describeChart(document.getElementById('statusChart'), statusData, 'Tickets by status');
+
+  const priorityData = {{ by_priority_json|safe }};
+  new Chart(document.getElementById('priorityChart'), {
+    type: 'doughnut',
+    data: { labels: priorityData.map(d => d.label), datasets: [{ data: priorityData.map(d => d.count), backgroundColor: ['#dc2626','#d97706','#2563eb','#16a34a'] }] },
+  });
+  describeChart(document.getElementById('priorityChart'), priorityData, 'Tickets by priority');
+
+  const appData = {{ by_application_json|safe }};
+  new Chart(document.getElementById('appChart'), {
+    type: 'bar',
+    data: { labels: appData.map(d => d.label), datasets: [{ label: 'Tickets', data: appData.map(d => d.count), backgroundColor: '#0e8c86' }] },
+    options: { plugins: { legend: { display: false } } }
+  });
+  describeChart(document.getElementById('appChart'), appData, 'Tickets by application');
+
+  const queueData = {{ by_queue_json|safe }};
+  new Chart(document.getElementById('queueChart'), {
+    type: 'bar',
+    data: { labels: queueData.map(d => d.label), datasets: [{ label: 'Tickets', data: queueData.map(d => d.count), backgroundColor: '#2563eb' }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+  describeChart(document.getElementById('queueChart'), queueData, 'Tickets by queue');
+
+  const requestedTypeData = {{ by_requested_type_json|safe }};
+  new Chart(document.getElementById('requestedTypeChart'), {
+    type: 'bar',
+    data: { labels: requestedTypeData.map(d => d.label), datasets: [{ label: 'Tickets', data: requestedTypeData.map(d => d.count), backgroundColor: '#d97706' }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+  describeChart(document.getElementById('requestedTypeChart'), requestedTypeData, 'Tickets by requested type');
+
+  const offeringData = {{ by_offering_json|safe }};
+  if (offeringData.length && document.getElementById('offeringChart')) {
+    new Chart(document.getElementById('offeringChart'), {
+      type: 'bar',
+      data: { labels: offeringData.map(d => d.label), datasets: [{ label: 'Tickets', data: offeringData.map(d => d.count), backgroundColor: '#6c4fd8' }] },
+      options: { plugins: { legend: { display: false } } }
+    });
+    describeChart(document.getElementById('offeringChart'), offeringData, 'Tickets by offering');
+  }
+</script>
+{% endif %}
+{% endblock %}

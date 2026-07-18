@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}{{ cluster.name }} — Global{% endblock %}
+{% block breadcrumb %}Global Clustering › {{ cluster.name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <a href="{% url 'clustering:global_clustering' %}?engine={{ cluster.engine }}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Global Clustering</a>
+    <div class="page-title" style="margin-top:6px">{{ cluster.name }}{% if cluster.is_significant_intersection %} <span class="badge badge-red">Cross-Project Intersection</span>{% elif cluster.project_count >= 2 %} <span class="badge badge-grey" title="More than one project contributed, but not enough to credibly call this a shared incident">Minor Overlap</span>{% endif %}</div>
+    <div class="page-subtitle">{{ cluster.get_engine_display }} · {{ cluster.recurring_count }} recurring tickets across {{ cluster.project_count }} project{{ cluster.project_count|pluralize }}{% if cluster.source_description %} · from {{ cluster.source_description }}{% endif %}</div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <div style="display:flex;flex-direction:column;gap:20px">
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Which Projects Contributed</div>
+          <div class="card-subtitle">Two or more here is exactly what makes this an intersection, not just a cluster</div>
+        </div>
+      </div>
+      <div class="card-body pad" style="display:flex;flex-wrap:wrap;gap:10px">
+        {% for b in breakdown %}
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-md)">
+          <span class="project-card-dot" style="background:{{ b.project__color }};width:24px;height:24px;font-size:10px">{{ b.project__name|slice:":2"|upper }}</span>
+          <span style="font-size:12.5px;font-weight:600">{{ b.project__name }}</span>
+          <span class="badge badge-grey">{{ b.count }} tickets</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Member Tickets</div><div class="card-subtitle">Showing {{ members|length }} of {{ member_count }}, grouped by project</div></div>
+      <div class="card-body">
+        <table class="task-table">
+          <thead><tr><th>{% sort_header "project" "Project" %}</th><th>{% sort_header "title" "Ticket" %}</th><th>{% sort_header "similarity" "Similarity" %}</th><th>Country</th><th>{% sort_header "created" "Date" %}</th></tr></thead>
+          <tbody>
+            {% for m in members %}
+            <tr>
+              <td><span class="badge badge-grey">{{ m.project.name }}</span></td>
+              <td><div class="task-name">{{ m.ticket.external_id }}</div><div class="task-process">{{ m.ticket.title|truncatechars:70 }}</div></td>
+              <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ m.similarity }}%;background:{{ cluster.color }}"></div></div><span>{{ m.similarity|floatformat:0 }}%</span></div></td>
+              <td><span class="badge badge-grey">{{ m.ticket.country }}</span></td>
+              <td style="color:var(--text-muted)">{{ m.ticket.created_at|date:"d M Y" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Cluster Signal</div></div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Engine</span>{% if cluster.engine == 'traditional_ml' %}<span class="badge badge-teal">Traditional ML</span>{% else %}<span class="badge badge-violet">Generative AI</span>{% endif %}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Recurring Tickets</span><span style="font-weight:700">{{ cluster.recurring_count }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Confidence Score</span><span style="font-weight:700;color:{{ cluster.color }}">{{ cluster.confidence|floatformat:0 }}%</span></div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Trend</span>
+            {% if cluster.trend == 'rising' %}<span class="trend-up" title="{{ cluster.trend_reasoning }}">▲ Rising</span>
+            {% elif cluster.trend == 'falling' %}<span class="trend-down" title="{{ cluster.trend_reasoning }}">▼ Falling</span>
+            {% else %}<span class="trend-flat" title="{{ cluster.trend_reasoning }}">● Stable</span>{% endif %}
+          </div>
+          {% if cluster.trend_reasoning %}<div style="font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.5">{{ cluster.trend_reasoning }}</div>{% endif %}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Projects Involved</span><span class="badge {% if cluster.is_significant_intersection %}badge-red{% else %}badge-grey{% endif %}">{{ cluster.project_count }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Application</span><span class="badge badge-grey">{{ cluster.top_application|default:"—" }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Offering</span><span class="badge badge-grey">{{ cluster.top_offering|default:"—" }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Top Country</span><span class="badge badge-grey">{{ cluster.top_country|default:"—" }}</span></div>
+      </div>
+    </div>
+
+    {% if cluster.keywords %}
+    <div class="card">
+      <div class="card-header"><div class="card-title">Keywords</div></div>
+      <div class="card-body pad">
+        <span style="font-size:12.5px;color:var(--text-secondary)">{{ cluster.keywords }}</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<details class="card help-block" style="margin-top:20px">
+  <summary>Help — Reading a global cluster</summary>
+  <div class="help-body">
+    <p>This cluster was found by running clustering across every ticket in the projects you selected on the Global Clustering page, not just one project. <strong>Which Projects Contributed</strong> above is the whole point — a single project here just means this particular group of tickets only showed up in one team's data; two or more means the same underlying issue is hitting multiple teams at once.</p>
+    <p>Everything else (confidence, trend, keywords) is computed the same way as a regular per-project cluster — see the Help section on the <a href="{% url 'clustering:list' %}">Problem Clusters</a> page for how those are derived.</p>
+  </div>
+</details>
+
+{% endblock %}

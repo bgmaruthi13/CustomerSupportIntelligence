@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Clustering Settings{% endblock %}
+{% block breadcrumb %}Clustering Settings{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Clustering Settings — {{ project.name }}</div>
+    <div class="page-subtitle">What text feeds each engine, and how it's cleaned up first. Traditional ML and Generative AI are configured independently — heavy cleanup helps TF-IDF but hurts sentence-embedding quality.</div>
+  </div>
+</div>
+
+<div class="card" style="padding:14px 20px;margin-bottom:20px;border-left:3px solid var(--amber)">
+  <span style="font-size:12.5px;color:var(--text-secondary)">Saving settings never re-runs a pipeline automatically — the next time you click <strong>Run Traditional ML</strong> or <strong>Run Generative AI</strong>, it picks up whatever is saved here.</span>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Confidence Scoring</div>
+      <div class="card-subtitle">Applies to both engines — a cluster's Confidence % is meant to mean the same thing regardless of which one produced it</div>
+    </div>
+  </div>
+  <div class="card-body pad">
+    <form method="post" id="confidenceForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_confidence">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px">
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Size importance</label>
+          <input type="number" id="confWeightSize" name="confidence_weight_size" value="{{ project.confidence_weight_size }}" min="0" step="0.01" style="width:100%">
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Density importance</label>
+          <input type="number" id="confWeightDensity" name="confidence_weight_density" value="{{ project.confidence_weight_density }}" min="0" step="0.01" style="width:100%">
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Recency importance</label>
+          <input type="number" id="confWeightRecency" name="confidence_weight_recency" value="{{ project.confidence_weight_recency }}" min="0" step="0.01" style="width:100%">
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Recency window (days)</label>
+          <input type="number" name="confidence_recency_window_days" value="{{ project.confidence_recency_window_days }}" min="1" style="width:100%">
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Floor (%)</label>
+          <input type="number" name="confidence_floor" value="{{ project.confidence_floor }}" min="0" max="100" style="width:100%">
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label style="font-size:11px">Cap (%)</label>
+          <input type="number" name="confidence_cap" value="{{ project.confidence_cap }}" min="0" max="100" style="width:100%">
+        </div>
+      </div>
+      <div id="confEffectiveReadout" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px"></div>
+      <button type="submit" class="btn btn-primary">Save Confidence Scoring</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var sizeEl = document.getElementById('confWeightSize');
+    var densityEl = document.getElementById('confWeightDensity');
+    var recencyEl = document.getElementById('confWeightRecency');
+    var readout = document.getElementById('confEffectiveReadout');
+    if (!sizeEl) return;
+    function updateReadout() {
+      var s = parseFloat(sizeEl.value) || 0;
+      var d = parseFloat(densityEl.value) || 0;
+      var r = parseFloat(recencyEl.value) || 0;
+      var total = s + d + r;
+      if (total <= 0) { readout.textContent = 'Effective weighting: enter at least one value above 0.'; return; }
+      readout.textContent = 'Effective weighting: ' + Math.round(s / total * 100) + '% size · ' + Math.round(d / total * 100) + '% density · ' + Math.round(r / total * 100) + '% recency';
+    }
+    [sizeEl, densityEl, recencyEl].forEach(function (el) { el.addEventListener('input', updateReadout); });
+    updateReadout();
+  })();
+</script>
+
+<div style="display:flex;gap:8px;margin-bottom:16px">
+  <a class="btn {% if tab == 'traditional_ml' %}btn-primary{% else %}btn-outline{% endif %}" href="?tab=traditional_ml">Traditional ML</a>
+  <a class="btn {% if tab == 'generative_ai' %}btn-primary{% else %}btn-outline{% endif %}" href="?tab=generative_ai">Generative AI</a>
+</div>
+
+{% if tab == 'traditional_ml' %}
+  {% include "clustering/_clustering_settings_form.html" with engine="traditional_ml" engine_label="Traditional ML" settings=ml_settings boilerplate_text=ml_boilerplate_text ticket_id_text=ml_ticket_id_text show_vectorizer=True %}
+{% else %}
+  {% include "clustering/_clustering_settings_form.html" with engine="generative_ai" engine_label="Generative AI" settings=genai_settings boilerplate_text=genai_boilerplate_text ticket_id_text=genai_ticket_id_text show_vectorizer=False %}
+{% endif %}
+
+<details class="card help-block" style="margin-top:20px">
+  <summary>Help — Clustering Settings</summary>
+  <div class="help-body">
+    <p><strong>Why the defaults are different for each engine</strong> — this is the one thing worth understanding before touching any toggle. Traditional ML is a bag-of-words method (TF-IDF): it has no concept of grammar, so aggressive cleanup — lowercasing, stripping punctuation/numbers, removing stopwords, stemming inflected forms to a shared root — removes noise and tightens its vocabulary, which is why its defaults lean toward "clean everything up." Generative AI is the opposite: the embedding model <em>is</em> a grammar/meaning model, trained on natural, intact English sentences — the same cleanup that helps TF-IDF actively degrades its understanding, which is why its defaults leave lowercasing, punctuation, stopwords, and stemming all off. An "everything is off" panel on the Generative AI tab isn't unfinished — it's the deliberately correct choice.</p>
+    <p><strong>Why Title + Description is the default for both engines</strong> — titles are often terse ("Batch job failed" tells you little on their own), while descriptions usually carry the actual detail. For Traditional ML, the cleanup pipeline (HTML/URL/email stripping, stopword removal) already handles the noise that made raw descriptions unreliable in the past, so the extra vocabulary is now a net win rather than a risk. For Generative AI, more natural context is close to a pure upside — the embedding model was built to understand full sentences, so there's no "noisy text" downside to worry about the way there is for TF-IDF.</p>
+    <p><strong>Why Traditional ML also defaults to stemming and a minimum token length of 3</strong> — stemming collapses "timeout"/"timed out"/"failing"/"failed" down to one shared token, which directly tightens an otherwise-fragmented TF-IDF vocabulary (the same fix this app's own troubleshooting notes flagged as the natural next step after stopword removal). A minimum token length of 3 drops single/double-character fragments that regularly survive punctuation/number stripping without ever carrying real signal. Neither applies to Generative AI — stemming would turn real words into non-words the embedding model was never trained on.</p>
+    <p><strong>Source</strong> — which mapped ticket fields get concatenated (in the order checked) into the text that's actually clustered.</p>
+    <p><strong>Cleanup</strong> — removes things that were never meaningful natural language (HTML markup, URLs, emails, boilerplate footers, ticket-ID noise). Generally safe to leave on for both engines.</p>
+    <p><strong>Text shape</strong> — lowercasing and punctuation/number stripping. Helps Traditional ML's keyword matching; can hurt Generative AI's embedding quality, since the model was trained on natural, grammatically intact text.</p>
+    <p><strong>Tokens</strong> — stopword removal (with your own add/exclude lists on top of the standard English list), a minimum token length, and stemming (collapses "failed"/"failing"/"fails" to one token).</p>
+    <p><strong>Vectorizer tuning</strong> (Traditional ML only) — corpus-level statistics, not per-ticket cleanup: drop terms that are too rare (typos) or too common (appear in nearly every ticket) to help distinguish clusters.</p>
+    <p><strong>Boilerplate / Ticket-ID patterns</strong> — one entry per line. A plain line is matched as a literal phrase (safe default). Prefix a line with <code>regex:</code> to match it as a regular expression instead, e.g. <code>regex: INC\d{7}</code>.</p>
+    <p><strong>Preview</strong> — runs the form's current values (even if unsaved) against your most recently created ticket, so you can see the net effect of several toggles stacked together before committing to Save.</p>
+    <p><strong>Confidence Scoring — how it works</strong> — every cluster's Confidence % blends three signals: <strong>size</strong> (how big this cluster is relative to the biggest one in the same run), <strong>density</strong> (how tightly HDBSCAN believes these tickets belong together), and <strong>recency</strong> (what fraction of the cluster's tickets are from the last N days). Whatever three importance numbers you enter, they're normalized to sum to 100% automatically — "50/30/20" and "5/3/2" produce the exact same weighting. Worked example at the default weights (40% size, 35% density, 25% recency, floor 30, cap 97): a cluster that's 50% the size of this run's biggest cluster, 80% membership density, and 60% of its tickets from the last 90 days scores <code>0.40×50 + 0.35×80 + 0.25×60 = 20 + 28 + 15 = 63</code> — that's 63% of the way from floor to cap, so <code>30 + 0.63 × (97 − 30) ≈ 72%</code> confidence. Changing these weights only affects the <em>next</em> pipeline run, same as every other Clustering Settings change — and since the Problem Candidate bar is computed from this run's own confidence distribution, changing the weights can also change which clusters clear that bar.</p>
+  </div>
+</details>
+
+{% endblock %}

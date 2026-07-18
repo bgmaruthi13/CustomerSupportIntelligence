@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Global Clustering{% endblock %}
+{% block breadcrumb %}Global Clustering{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Global Clustering — Across Projects</div>
+    <div class="page-subtitle">Select two or more projects, run clustering across their combined tickets, and see which clusters contain tickets from more than one project — that's a shared incident hitting multiple teams, not just "same topic" noise.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Run a Global Pass</div></div>
+  <div class="card-body pad">
+    <form method="post" id="globalRunForm">
+      {% csrf_token %}
+      <div class="form-field">
+        <label>Projects to include</label>
+        {% if projects %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px">
+          {% for p in projects %}
+          <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:12.5px;font-weight:500;cursor:pointer">
+            <input type="checkbox" name="project_ids" value="{{ p.id }}">
+            <span class="project-card-dot" style="background:{{ p.color }};width:20px;height:20px;font-size:9px">{{ p.initials }}</span>
+            <span style="flex:1">{{ p.name }}</span>
+            <span style="color:var(--text-muted);font-size:11px">{{ p.ticket_count }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:12.5px;color:var(--text-muted)">No projects yet — create at least two projects and upload tickets before running a global pass.</p>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px">
+        <div class="form-field" style="margin-bottom:0;min-width:220px">
+          <label>Engine</label>
+          <select name="engine">
+            <option value="traditional_ml" {% if engine == 'traditional_ml' %}selected{% endif %}>Traditional ML</option>
+            <option value="generative_ai" {% if engine == 'generative_ai' %}selected{% endif %}>Generative AI</option>
+          </select>
+        </div>
+        <div class="form-field" style="margin-bottom:0;min-width:180px">
+          <label>Granularity</label>
+          <select name="granularity">
+            {% for value, label in granularity_choices %}
+            <option value="{{ value }}" {% if value == default_granularity %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" id="runGlobalBtn" {% if projects.count < 2 %}disabled title="Need at least 2 projects"{% endif %}>Run Global Clustering</button>
+      </div>
+    </form>
+  </div>
+  <div id="runGlobalNotice" style="display:none;padding:12px 20px;background:var(--amber-bg);color:#92620a;font-size:12.5px;border-top:1px solid var(--border)">
+    Clustering the combined ticket pool from every selected project — this can take longer than a single project's run. This page will reload automatically when done; please don't navigate away.
+  </div>
+</div>
+
+<div class="card" style="padding:14px 20px;margin-bottom:20px;border-left:3px solid var(--amber)">
+  <span style="font-size:12.5px;color:var(--text-secondary)">Each project's own <a href="{% url 'clustering:settings' %}">Clustering Settings</a> (source fields, cleanup, stopwords, etc.) apply to its own tickets in this run — vectorizer tuning (min/max document frequency) uses a fixed setting for the whole combined run instead, since it's a statistic over the full cross-project corpus rather than any one project's own data.</span>
+</div>
+
+{% if has_run %}
+<div class="kpi-grid">
+  <div class="kpi-card blue"><div class="kpi-label">Clusters Found</div><div class="kpi-value">{{ cluster_count }}</div></div>
+  <div class="kpi-card red"><div class="kpi-label">Cross-Project Intersections</div><div class="kpi-value">{{ intersection_count }}</div><div class="kpi-trend">Clusters spanning 2+ projects</div></div>
+  <div class="kpi-card amber"><div class="kpi-label">Last Run</div><div class="kpi-value" style="font-size:15px;font-weight:600">{{ last_run_at|timesince }} ago</div><div class="kpi-trend">by {{ last_run_by.username|default:"—" }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Cross-Project Intersections</div>
+      <div class="card-subtitle">Clusters whose tickets come from more than one project — a likely shared incident</div>
+    </div>
+    <a class="card-action" href="{% url 'clustering:global_explorer' %}?engine={{ engine }}">View 2D/3D →</a>
+  </div>
+  <div class="card-body">
+    {% if intersection_data %}
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "name" "Cluster" %}</th>
+        <th>{% sort_header "recurring" "Recurring" %}</th>
+        <th>{% sort_header "confidence" "Confidence" %}</th>
+        <th>{% sort_header "projects" "Projects Involved" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for row in intersection_data %}
+        <tr>
+          <td>
+            <div class="task-name">{{ row.cluster.name }}</div>
+            <div class="task-process">{{ row.cluster.keywords }}</div>
+          </td>
+          <td>{{ row.cluster.recurring_count }}</td>
+          <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ row.cluster.confidence }}%;background:var(--red)"></div></div><span>{{ row.cluster.confidence|floatformat:0 }}%</span></div></td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              {% for b in row.breakdown %}
+              <span class="badge badge-grey">{{ b.project__name }} · {{ b.count }}</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td><a href="{% url 'clustering:global_cluster_detail' row.cluster.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">View cluster →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No cross-project intersections in this run — every cluster's tickets came from a single project.</div>
+    {% endif %}
+  </div>
+</div>
+
+<details style="margin-bottom:20px">
+  <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-secondary);padding:14px 4px">Full cluster list from this run ({{ cluster_count }})</summary>
+  <div class="card" style="margin-top:12px">
+    <div class="card-body">
+      {% if clusters %}
+      <table class="task-table">
+        <thead><tr>
+          <th>{% sort_header "name" "Cluster" %}</th>
+          <th>{% sort_header "recurring" "Recurring" %}</th>
+          <th>{% sort_header "projects" "Projects" %}</th>
+          <th>{% sort_header "trend" "Trend" %}</th>
+          <th>{% sort_header "confidence" "Confidence" %}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          {% for c in clusters %}
+          <tr>
+            <td><div class="task-name">{{ c.name }}</div><div class="task-process">{{ c.keywords }}</div></td>
+            <td>{{ c.recurring_count }}</td>
+            <td>{% if c.is_significant_intersection %}<span class="badge badge-red">{{ c.project_count }} projects</span>{% elif c.project_count >= 2 %}<span class="badge badge-grey" title="Doesn't meet the minimum-contribution bar for a genuine intersection">{{ c.project_count }} projects (minor)</span>{% else %}<span class="badge badge-grey">1 project</span>{% endif %}</td>
+            <td>
+              {% if c.trend == 'rising' %}<span class="trend-up">▲ Rising</span>
+              {% elif c.trend == 'falling' %}<span class="trend-down">▼ Falling</span>
+              {% else %}<span class="trend-flat">● Stable</span>{% endif %}
+            </td>
+            <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:var(--primary)"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+            <td><a href="{% url 'clustering:global_cluster_detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">View →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No clusters for this engine yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</details>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — What this page is for</summary>
+  <div class="help-body">
+    <p>Every other clustering page in this app is scoped to one project on purpose — a team's tickets shouldn't cluster together with an unrelated team's by accident. This page is the deliberate exception: pick two or more projects, run the same Traditional ML or Generative AI engine across their <strong>combined</strong> tickets, and see what comes out. Results are kept separate from your regular per-project clusters — they live in their own set, only visible here.</p>
+    <p>The <strong>Cross-Project Intersections</strong> table is the actual point of this page: a cluster whose members come from more than one selected project means the same underlying issue — a shared vendor, a common third-party API, a company-wide outage — is showing up in multiple teams' ticket queues, something no single project's own clustering could ever reveal on its own.</p>
+    <p>Running again replaces the previous global run for that engine (same "wipe and rebuild" behavior as the per-project pages) — it doesn't accumulate history across runs.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const globalRunForm = document.getElementById('globalRunForm');
+  if (globalRunForm) {
+    globalRunForm.addEventListener('submit', (e) => {
+      const checked = globalRunForm.querySelectorAll('input[name="project_ids"]:checked').length;
+      if (checked < 2) {
+        e.preventDefault();
+        alert('Select at least 2 projects to run a global clustering pass.');
+        return;
+      }
+      const btn = document.getElementById('runGlobalBtn');
+      btn.disabled = true;
+      btn.textContent = 'Running…';
+      const notice = document.getElementById('runGlobalNotice');
+      if (notice) notice.style.display = 'block';
+    });
+  }
+</script>
+{% endblock %}

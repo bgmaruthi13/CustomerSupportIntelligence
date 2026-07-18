@@ -1,0 +1,41 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ site_settings.site_name }} — Sign In</title>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body style="overflow:auto">
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="logo-text">{{ site_settings.site_name }}</div>
+    </div>
+    <div class="auth-title">Sign in to your workspace</div>
+    <div class="auth-sub">AI-Driven Problem Management</div>
+
+    {% if form.errors %}
+    <div class="form-errors">Invalid username or password.</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-field">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" autofocus required>
+      </div>
+      <div class="form-field">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px">Sign In</button>
+    </form>
+
+    <div class="auth-demo-hint">Demo credentials: <strong>demo</strong> / <strong>correlate123</strong></div>
+  </div>
+</div>
+</body>
+</html>

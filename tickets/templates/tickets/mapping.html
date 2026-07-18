@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load ticket_extras %}
+{% block title %}Map Columns{% endblock %}
+{% block breadcrumb %}Upload Data › Map Columns{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title" title="{{ batch.original_filename }}">Map Columns — {{ batch.display_name }}</div>
+    <div class="page-subtitle">{{ row_count }} rows detected, {{ columns|length }} columns. Map each field, choose a date format, and preview before importing.</div>
+  </div>
+</div>
+
+<div class="wizard-steps">
+  <div class="wizard-step done"><span class="num">✓</span> Upload File</div>
+  <div class="wizard-sep"></div>
+  <div class="wizard-step active"><span class="num">2</span> Map Columns</div>
+  <div class="wizard-sep"></div>
+  <div class="wizard-step"><span class="num">3</span> Review &amp; Import</div>
+</div>
+
+{% if is_recommit %}
+<div class="card" style="padding:20px;margin:20px 0;border-left:3px solid var(--amber)">
+  <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--amber)">⚠ Re-mapping an already-imported file</div>
+  <p style="color:var(--text-secondary);font-size:12.5px">This batch already imported {{ existing_ticket_count }} ticket{{ existing_ticket_count|pluralize }}. Re-committing with a new mapping will <strong>delete and replace</strong> those tickets — clusters, embeddings, and duplicate flags built from them will be stale until you re-run your pipelines afterward.</p>
+</div>
+{% endif %}
+
+{% if pii_summary %}
+<div class="card" style="padding:20px;margin:20px 0;border-left:3px solid var(--red)">
+  <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--red)">⚠ This file appears to contain sensitive data — {{ pii_total }} instance{{ pii_total|pluralize }} found</div>
+  <p style="color:var(--text-secondary);font-size:12.5px;margin-bottom:10px">Pattern-matched (regex/checksum), not guaranteed — review before importing, especially anything in an unmapped column below.</p>
+  <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px">
+    {% for s in pii_summary %}
+    <li>
+      <strong style="color:var(--text-primary)">{{ s.count }} possible {{ s.label }}</strong> in column{{ s.columns|length|pluralize }} {% for c in s.columns %}<code>{{ c }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+      {% if s.unmapped_columns %}<span style="color:var(--red)"> — including {{ s.unmapped_columns|length }} unmapped column{{ s.unmapped_columns|length|pluralize }}: {% for c in s.unmapped_columns %}<code>{{ c }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" id="mappingForm">
+  {% csrf_token %}
+
+  <div class="dashboard-grid">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Column Mapping</div>
+          <div class="card-subtitle">Nothing is mandatory — map only the columns you want. Anything left unmapped gets a sensible auto-generated fallback instead of blocking the import.</div>
+        </div>
+        <button type="button" class="btn btn-outline" style="padding:6px 12px;font-size:12px" id="recommendedOnlyBtn">Recommended Fields Only</button>
+      </div>
+      <div class="card-body">
+        <table class="mapping-table">
+          <thead><tr><th style="width:60px">Include</th><th>Target Field</th><th>Source Column</th></tr></thead>
+          <tbody>
+            {% for field in all_fields %}
+            <tr>
+              <td>
+                <input type="checkbox" name="include_{{ field }}" class="optional-field-toggle" data-field="{{ field }}"
+                       {% if field in batch.column_mapping %}checked{% endif %}
+                       onchange="document.getElementById('select_{{ field }}').disabled = !this.checked; if (!this.checked) { document.getElementById('previewAction').click(); }">
+              </td>
+              <td>
+                {{ field }}
+                {% if field in recommended_fields %}<span class="recommended-tag" title="Not required — but matters most for clustering quality">RECOMMENDED</span>{% endif %}
+              </td>
+              <td>
+                <select name="map_{{ field }}" id="select_{{ field }}" onchange="document.getElementById('previewAction').click()"
+                         {% if field not in batch.column_mapping %}disabled{% endif %}>
+                  <option value="">— Not mapped —</option>
+                  {% for col in columns %}
+                  <option value="{{ col }}" {% if batch.column_mapping|get_item:field == col %}selected{% endif %}>{{ col }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Date Format</div></div>
+        <div class="card-body pad">
+          <div class="form-field" style="margin-bottom:0">
+            <select name="datetime_format" onchange="document.getElementById('previewAction').click()">
+              {% for value, label in datetime_choices %}
+              <option value="{{ value }}" {% if batch.datetime_format == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <div class="help-text">Applied to the "created_at" column. "Auto-detect" handles most common formats but explicit formats are safer for ambiguous dates like 01/02/2026.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Import</div></div>
+        <div class="card-body pad" style="display:flex;flex-direction:column;gap:10px">
+          <button type="submit" name="action" value="preview" id="previewAction" class="btn btn-outline" style="justify-content:center">Refresh Preview</button>
+          <button type="submit" name="action" value="commit" class="btn btn-primary" style="justify-content:center"
+                  {% if is_recommit %}onclick="return confirm('This will delete and replace {{ existing_ticket_count }} existing ticket{{ existing_ticket_count|pluralize }} imported from this file with the updated mapping. Clusters, embeddings, and duplicate flags built from them will be stale until you re-run your pipelines. Continue?');"{% endif %}>
+            {% if is_recommit %}Re-import {{ row_count }} Rows (replaces {{ existing_ticket_count }} existing){% else %}Import {{ row_count }} Rows{% endif %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><div class="card-title">Preview (first 20 mapped rows)</div></div>
+    <div class="card-body">
+      <div class="preview-table-wrap">
+        <table class="preview-table">
+          <thead><tr>{% for field in all_fields %}<th>{{ field }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in preview_rows %}
+            <tr>
+              {% for field in all_fields %}
+              <td {% if 'ERR:' in row|get_item:field %}style="color:var(--red)"{% endif %}>{{ row|get_item:field|default:"—" }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</form>
+
+<details class="card help-block">
+  <summary>Help — Mapping columns</summary>
+  <div class="help-body">
+    <h4>Nothing is required</h4>
+    <p>Tick <strong>Include</strong> and pick a source column for whichever fields you want. Anything left unmapped (or that fails to parse) gets a sensible auto-generated fallback at import time — it never blocks the row. Fields tagged <strong>RECOMMENDED</strong> aren't mandatory either, they just matter most for clustering quality: a good title and date make far better clusters than a perfectly complete row of metadata.</p>
+    <p>Use <strong>Recommended Fields Only</strong> to quickly strip the mapping down to just those, if you want a fast first pass.</p>
+    <h4>Date Format</h4>
+    <p>Applied to whatever column you map to "created_at". "Auto-detect" handles most common formats, but pick an explicit one for ambiguous dates like <code>01/02/2026</code> (is that 1 Feb or 2 Jan?) to avoid silent misparsing.</p>
+    <h4>Preview</h4>
+    <p>Shows the first 20 rows exactly as they'll be imported. Red text means that value failed to parse and will get a fallback — check a few of these before committing if the count looks high. The preview updates automatically whenever you change a mapping or the date format.</p>
+    <h4>Import</h4>
+    <p><strong>Refresh Preview</strong> only re-renders the preview table — nothing is saved. <strong>Import N Rows</strong> commits the entire file, not just the previewed 20. The only thing that skips a row outright is a genuine duplicate external ID; everything else is imported with a note in the results.</p>
+  </div>
+</details>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const recommendedFields = [{% for f in recommended_fields %}"{{ f }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+  document.getElementById('recommendedOnlyBtn').addEventListener('click', () => {
+    document.querySelectorAll('.optional-field-toggle').forEach(cb => {
+      const isRecommended = recommendedFields.includes(cb.dataset.field);
+      const select = document.getElementById('select_' + cb.dataset.field);
+      if (!isRecommended) {
+        cb.checked = false;
+        if (select) select.disabled = true;
+      } else if (select && select.value) {
+        cb.checked = true;
+        select.disabled = false;
+      }
+    });
+    document.getElementById('previewAction').click();
+  });
+</script>
+{% endblock %}
