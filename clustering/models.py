@@ -93,7 +93,7 @@ class ClusterMember(models.Model):
 
 class TicketEmbedding(models.Model):
     """Persisted sentence-embedding vector for a ticket — the retrieval index behind
-    Ask Correlate. Populated as a side effect of the Generative AI pipeline (which
+    Smart Search. Populated as a side effect of the Generative AI pipeline (which
     already embeds every ticket for clustering) or by the standalone search-index
     build action for projects that haven't run it. `project` is denormalized so a
     project's full index loads with one indexed query instead of a join through

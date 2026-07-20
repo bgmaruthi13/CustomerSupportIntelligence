@@ -13,7 +13,7 @@ class SiteSettings(models.Model):
     site_name = models.CharField(max_length=100, default="Correlate AI", help_text="Shown in the sidebar, browser tab title, and login page — no logo image, text only.")
     embedding_model_path = models.CharField(
         max_length=300, default="embedding_model", blank=True,
-        help_text="Local folder containing a sentence-transformers model, used by Generative AI, Ask Correlate, Find Similar, Categorize Tickets, and Possible Duplicates. Either a path relative to the app's root folder (e.g. 'embedding_model') or an absolute local path — never a Hugging Face Hub model id; this app never reaches out to Hugging Face. If the folder doesn't exist, those features show a clear error instead of failing silently. Also editable from the Clustering Settings page.",
+        help_text="Local folder containing a sentence-transformers model, used by Generative AI, Smart Search, Find Similar, Smart Assign, and Possible Duplicates. Either a path relative to the app's root folder (e.g. 'embedding_model') or an absolute local path — never a Hugging Face Hub model id; this app never reaches out to Hugging Face. If the folder doesn't exist, those features show a clear error instead of failing silently. Also editable from the Clustering Settings page.",
     )
 
     class Meta:

@@ -11,7 +11,7 @@ on top of the existing platform, so pick items independently based on priority.
 ## Theme A — Generative AI capabilities
 
 *Everything currently labeled "AI" in the app (the "Generative AI" clustering engine,
-Ask Correlate, Find Similar) is embeddings — semantic search/clustering via
+Smart Search, Find Similar) is embeddings — semantic search/clustering via
 sentence-transformers, not text generation. There is no LLM API call anywhere in the
 codebase. No LLM API key is available in this environment — A.1 and A.4 below were
 implemented via the existing copy/paste bridge pattern instead (build a prompt
@@ -27,7 +27,7 @@ Models before they're buildable.*
 | A.0 | LLM API integration foundation (client wiring, config/API key handling, error/timeout handling, cost guardrails) | 3 | Not started — no API key available |
 | A.1 | Auto-generated cluster summaries — one-line plain-English problem statement, stored on `Cluster.ai_summary` | 3 | **Done** — copy/paste bridge (Copy Prompt → paste into Copilot → save), shown on cluster list + detail |
 | A.2 | AI-drafted root cause + resolution | 5 | Already covered — pre-existing Resolution card (`resolution_notes`/`copilot_assisted`) is this same pattern |
-| A.3 | Ask Correlate synthesis step (RAG answer, not just retrieval) | 5 | Not started — needs an LLM API (unattended, doesn't fit copy/paste) |
+| A.3 | Smart Search synthesis step (RAG answer, not just retrieval) | 5 | Not started — needs an LLM API (unattended, doesn't fit copy/paste) |
 | A.4 | Trend/anomaly explanation — hypothesis for *why* a cluster is rising/falling, stored on `Cluster.ai_trend_explanation` | 3 | **Done** — same copy/paste bridge, sample is the cluster's most-recent tickets; hidden when trend is "stable" |
 | A.5 | Executive brief narrative generation | 2 | Not started — needs an LLM API + Theme B's KPI snapshot first |
 

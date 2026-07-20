@@ -173,7 +173,7 @@
     <ul>
       <li><strong>Ticket Volume Trend</strong> — toggle Day/Week/Month/Quarter to see how ticket volume moves over time at different resolutions.</li>
       <li><strong>By Country / Status / Priority / Application</strong> — straight counts. A value of "Unspecified" or "Unknown" means that field wasn't mapped (or was empty) for those tickets.</li>
-      <li><strong>By Queue / Requested Type</strong> — same straight-count treatment. Queue is the field the <a href="{% url 'clustering:categorize' %}">Categorize Tickets</a> k-NN suggestion feature exists to fill in — a shrinking "Unspecified" bar here reflects that feature's progress on this project.</li>
+      <li><strong>By Queue / Requested Type</strong> — same straight-count treatment. Queue is the field the <a href="{% url 'clustering:categorize' %}">Smart Assign</a> k-NN suggestion feature exists to fill in — a shrinking "Unspecified" bar here reflects that feature's progress on this project.</li>
       <li><strong>By Offering</strong> — only shown once at least one ticket has an offering value. A ticket tagged with more than one offering (e.g. "SunSystems Support, QA Vision") counts toward <strong>every</strong> offering it lists, not just the first — so bars can sum to more than the total ticket count.</li>
       <li><strong>Missing Country/App</strong>, <strong>Missing Queue/Requested Type</strong>, and <strong>Missing Description</strong> KPIs — how many tickets fell back to "Unspecified" (or an empty description) for these fields. High numbers here are worth fixing in Map Columns before clustering, since several of these fields feed downstream summaries or the clustering text itself (see Clustering Settings).</li>
     </ul>

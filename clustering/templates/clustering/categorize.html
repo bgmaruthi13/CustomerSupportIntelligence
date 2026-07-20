@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load sort_tags %}
-{% block title %}Categorize Tickets{% endblock %}
-{% block breadcrumb %}Categorize Tickets{% endblock %}
+{% block title %}Smart Assign{% endblock %}
+{% block breadcrumb %}Smart Assign{% endblock %}
 {% block content %}
 
 <div class="page-header">
   <div>
-    <div class="page-title">Categorize Tickets — {{ project.name }}</div>
+    <div class="page-title">Smart Assign — {{ project.name }}</div>
     <div class="page-subtitle">Suggests which queue an untriaged ticket belongs to, by finding its nearest already-labeled neighbors — not an LLM classifier, an explainable nearest-neighbor vote.</div>
   </div>
   {% if suggestions %}
@@ -25,7 +25,7 @@
 <div class="card" style="padding:32px;text-align:center">
   <div style="font-size:15px;font-weight:700;margin-bottom:8px">No search index yet</div>
   <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Queue suggestions need at least some tickets with a known queue and an embedding to compare against. Run <strong>Generative AI</strong> clustering first, or build the index directly.</p>
-  <a class="btn btn-primary" href="{% url 'clustering:search' %}">Go to Ask Correlate</a>
+  <a class="btn btn-primary" href="{% url 'clustering:search' %}">Go to Smart Search</a>
 </div>
 {% elif untriaged_count == 0 %}
 <div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
@@ -87,7 +87,7 @@
   <summary>Help — How are queue suggestions made?</summary>
   <div class="help-body">
     <p>For each untriaged ticket (queue "Unspecified"), its embedding is compared against every ticket in the project that already has a real queue value — either mapped from your source data's "Assignment Group"/"Queue" column, or a previously accepted suggestion. The 5 nearest neighbors vote, and the majority queue among them is suggested — the "agreement" percentage is literally how many of those 5 agree, not a hidden confidence score.</p>
-    <p>No LLM is involved — this is the same cosine-similarity ranking behind Ask Correlate and Find Similar Tickets, applied to majority-vote a label instead of ranking search results.</p>
+    <p>No LLM is involved — this is the same cosine-similarity ranking behind Smart Search and Find Similar Tickets, applied to majority-vote a label instead of ranking search results.</p>
   </div>
 </details>
 

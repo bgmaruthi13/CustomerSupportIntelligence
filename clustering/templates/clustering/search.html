@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load sort_tags %}
-{% block title %}Ask Correlate{% endblock %}
-{% block breadcrumb %}Ask Correlate{% endblock %}
+{% block title %}Smart Search{% endblock %}
+{% block breadcrumb %}Smart Search{% endblock %}
 {% block content %}
 
 <div class="page-header">
@@ -10,7 +10,7 @@
     <div class="page-title">Similar to {{ source_ticket.external_id }} — {{ project.name }}</div>
     <div class="page-subtitle">{{ source_ticket.title }}</div>
     {% else %}
-    <div class="page-title">Ask Correlate — {{ project.name }}</div>
+    <div class="page-title">Smart Search — {{ project.name }}</div>
     <div class="page-subtitle">Semantic search over your tickets — finds matches by meaning, not just shared keywords. Retrieval only, not an AI-generated answer.</div>
     {% endif %}
   </div>
@@ -26,7 +26,7 @@
 <div class="card" style="padding:32px;text-align:center;margin-bottom:20px">
   <div style="font-size:15px;font-weight:700;margin-bottom:8px">No search index yet</div>
   <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
-    Ask Correlate ranks tickets by an embedding vector — {{ total_tickets }} ticket{{ total_tickets|pluralize }} in this project don't have one yet.
+    Smart Search ranks tickets by an embedding vector — {{ total_tickets }} ticket{{ total_tickets|pluralize }} in this project don't have one yet.
     Running <strong>Generative AI</strong> clustering builds this automatically, or build it directly without clustering:
   </p>
   <form method="post" style="display:inline">
@@ -70,12 +70,12 @@
       <form method="get" style="display:flex;gap:10px">
         <label for="searchQueryInput" class="sr-only">Search query</label>
         <input type="text" id="searchQueryInput" name="q" value="{{ query }}" placeholder="e.g. login failures in EMEA, batch job timeouts, invoice generation errors..." style="flex:1" {% if stale_model %}disabled{% endif %}>
-        <button type="submit" class="btn btn-primary" {% if stale_model %}disabled{% endif %}>Ask</button>
+        <button type="submit" class="btn btn-primary" {% if stale_model %}disabled{% endif %}>Search</button>
       </form>
     </div>
   </div>
   {% else %}
-  <div style="margin-bottom:20px"><a href="{% url 'clustering:search' %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Ask Correlate</a></div>
+  <div style="margin-bottom:20px"><a href="{% url 'clustering:search' %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Smart Search</a></div>
   {% endif %}
 
   {% if query or source_ticket %}
@@ -124,7 +124,7 @@
 {% endif %}
 
 <details class="card help-block">
-  <summary>Help — How does Ask Correlate work?</summary>
+  <summary>Help — How does Smart Search work?</summary>
   <div class="help-body">
     <p>Your query is embedded with the same local sentence-embedding model used by the Generative AI clustering pipeline, then ranked against every ticket's stored embedding by cosine similarity — the same technique behind semantic search. <strong>This is retrieval, not generation</strong>: results are ranked existing tickets, not an AI-written answer, and nothing is sent to an external API.</p>
     <p>Tickets that have an embedding but aren't currently in a Generative AI cluster show as "Not yet clustered" rather than being hidden from results.</p>

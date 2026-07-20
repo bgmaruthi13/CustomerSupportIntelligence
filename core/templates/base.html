@@ -59,15 +59,17 @@
     <span>Global Clustering</span>
   </a>
 
-  <div class="sidebar-section-label">Ticket Lookup Tools</div>
-  <a class="nav-item {% if active_nav == 'pii-report' %}active{% endif %}" href="{% url 'tickets:sensitive_data_report' %}">
-    <span>Sensitive Data Report</span>
-  </a>
+  <div class="sidebar-section-label">Lookup Tools</div>
   <a class="nav-item {% if active_nav == 'search' %}active{% endif %}" href="{% url 'clustering:search' %}">
-    <span>Ask Correlate</span>
+    <span>Smart Search</span>
   </a>
   <a class="nav-item {% if active_nav == 'categorize' %}active{% endif %}" href="{% url 'clustering:categorize' %}">
-    <span>Categorize Tickets</span>
+    <span>Smart Assign</span>
+  </a>
+
+  <div class="sidebar-section-label">Data Quality &amp; Compliance</div>
+  <a class="nav-item {% if active_nav == 'pii-report' %}active{% endif %}" href="{% url 'tickets:sensitive_data_report' %}">
+    <span>Sensitive Data Report</span>
   </a>
   <a class="nav-item {% if active_nav == 'duplicates' %}active{% endif %}" href="{% url 'clustering:duplicates' %}">
     <span>Possible Duplicates</span>

@@ -35,7 +35,7 @@
     <div class="pipeline-arrow">↓</div>
     <div class="pipeline-step"><div class="step-num" style="background:var(--violet)">5</div><div><div class="step-label">Drill Down (optional)</div><div class="step-desc">Re-cluster just one cluster's own tickets into finer sub-groups when a group looks too broad to act on directly.</div></div></div>
     <div class="pipeline-arrow">↓</div>
-    <div class="pipeline-step"><div class="step-num" style="background:var(--amber)">6</div><div><div class="step-label">Ticket Lookup Tools</div><div class="step-desc">Ask Correlate (semantic search), Categorize Tickets (queue suggestion), and Possible Duplicates all run on demand, independent of the main clustering runs.</div></div></div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--amber)">6</div><div><div class="step-label">Lookup Tools</div><div class="step-desc">Smart Search (semantic search), Smart Assign (queue suggestion), and Possible Duplicates all run on demand, independent of the main clustering runs. (The Sensitive Data Report is a review of step 2's automatic scan, not something you separately run.)</div></div></div>
     <div class="pipeline-arrow">↓</div>
     <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Capture AI-Assisted Notes</div><div class="step-desc">Build a prompt from a cluster's data, paste it into your own Microsoft Copilot chat (nothing is sent by this app), then save the response back — as a one-line AI Summary, a trend explanation, or full resolution notes.</div></div></div>
   </div>
@@ -95,10 +95,10 @@
     <table class="data-table">
       <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
       <tbody>
-        <tr><td class="dim">Ask Correlate</td><td>Semantic search over every ticket, by a plain-English query.</td><td>Search "invoice generation errors" and get 12 ranked tickets back, including ones that never use the word "invoice".</td></tr>
+        <tr><td class="dim">Smart Search</td><td>Semantic search over every ticket, by a plain-English query.</td><td>Search "invoice generation errors" and get 12 ranked tickets back, including ones that never use the word "invoice".</td></tr>
         <tr><td class="dim">Find Similar Tickets</td><td>From any ticket in a search result, jump straight to tickets like it.</td><td>Open ticket INC0032211, click "Find Similar", and see 6 other tickets describing the same underlying issue.</td></tr>
         <tr><td class="dim">Quick Triage</td><td>Paste a new ticket's text (on the Dashboard) before it's even logged, and see the closest matching cluster.</td><td>Paste "user can't login, account locked after password reset" → instantly matched to "Account Lockout After Reset".</td></tr>
-        <tr><td class="dim">Categorize Tickets</td><td>Suggests a support queue for untriaged tickets by nearest-neighbor vote against already-labeled ones.</td><td>An unlabeled ticket gets suggested queue "Network Support", with 4 of its 5 nearest neighbors agreeing (80%).</td></tr>
+        <tr><td class="dim">Smart Assign</td><td>Suggests a support queue for untriaged tickets by nearest-neighbor vote against already-labeled ones.</td><td>An unlabeled ticket gets suggested queue "Network Support", with 4 of its 5 nearest neighbors agreeing (80%).</td></tr>
         <tr><td class="dim">Possible Duplicates</td><td>Sweeps the whole project for near-identical ticket pairs reported close together in time.</td><td>Two tickets opened 2 hours apart by the same reporter, 96% similar text, get flagged as a possible duplicate for review.</td></tr>
       </tbody>
     </table>
@@ -158,7 +158,7 @@
   <div class="card-header"><div class="card-title">5. Known Limitations</div></div>
   <div class="card-body pad">
     <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
-      <li><strong>No server-side LLM generation anywhere.</strong> Ask Correlate and Categorize Tickets rank/vote over existing tickets (retrieval, not generation); AI Summary, Trend Explanation, and resolution notes all require a manual copy/paste into an external chat tool (e.g. Copilot) this app doesn't control.</li>
+      <li><strong>No server-side LLM generation anywhere.</strong> Smart Search and Smart Assign rank/vote over existing tickets (retrieval, not generation); AI Summary, Trend Explanation, and resolution notes all require a manual copy/paste into an external chat tool (e.g. Copilot) this app doesn't control.</li>
       <li><strong>Re-running an engine replaces its previous top-level results</strong>, not merges with them — by design, so a stale run never lingers, but it means any manual edits tied to the old clusters (like resolution notes) don't automatically carry over to the new ones if the cluster boundaries shift.</li>
       <li><strong>Resolution notes are tied to a specific cluster row.</strong> If you reset or re-run a pipeline and the cluster IDs change, previously saved notes stay on the old (now-gone) cluster rather than following the "same" issue to its new cluster — this is the clearest current gap between "notes exist" and "notes are durable."</li>
       <li><strong>Queue suggestions need enough labeled data to vote from.</strong> With very few or heavily skewed existing queue values, suggestions get thin and less trustworthy — treat low-agreement suggestions as a starting guess, not a verdict.</li>
@@ -271,7 +271,7 @@
   <div class="card-body" style="border-top:1px solid var(--border)">
     <div style="padding:16px 20px 10px;font-size:12.5px;font-weight:700;color:var(--text-primary)">Delivered beyond the original scope</div>
     <div class="recent-list">
-      <div class="recent-item"><div class="recent-icon" style="background:var(--primary)">✓</div><div><div class="recent-name">Ask Correlate, Quick Triage, Find Similar</div><div class="recent-meta">Semantic search over tickets, no LLM required</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--primary)">✓</div><div><div class="recent-name">Smart Search, Quick Triage, Find Similar</div><div class="recent-meta">Semantic search over tickets, no LLM required</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--violet)">✓</div><div><div class="recent-name">Queue categorization, duplicate detection</div><div class="recent-meta">Nearest-neighbor tooling built on the same embeddings</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--teal)">✓</div><div><div class="recent-name">Sensitive data (P2) scanning, regional trend breakdown</div><div class="recent-meta">Governance and deeper cluster insight</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--amber)">✓</div><div><div class="recent-name">Drill-down sub-clustering, Copilot-assisted resolution notes</div><div class="recent-meta">Deeper analysis and human-in-the-loop knowledge capture</div></div></div>

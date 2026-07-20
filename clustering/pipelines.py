@@ -311,7 +311,7 @@ def _resolve_model_path(configured_path):
     raise EmbeddingModelUnavailable(
         f"No embedding model found at ‘{configured_path}’. Set a valid local "
         "folder path in Clustering Settings (or Admin › Site Settings) before "
-        "using Generative AI, Ask Correlate, Categorize Tickets, or Possible Duplicates."
+        "using Generative AI, Smart Search, Smart Assign, or Possible Duplicates."
     )
 
 

@@ -497,7 +497,7 @@ def explorer(request):
 # Below this cosine-similarity percentage, a match is more "technically the
 # closest thing we had" than a genuine hit — shown with the same visual weight
 # as a 90%+ match otherwise, which risks a mediocre top result reading as a
-# confident answer. Applies to Ask Correlate, Find Similar Tickets, and Quick
+# confident answer. Applies to Smart Search, Find Similar Tickets, and Quick
 # Triage alike, since all three share _rank_by_vector.
 WEAK_MATCH_THRESHOLD = 55
 
@@ -595,7 +595,7 @@ def classify_text(project, text, top_k=5):
     embeds arbitrary typed text on demand — NOT persisted, this is a scratch lookup
     for a ticket that may not exist in the system yet, not new data entering it — and
     returns the best-matching cluster plus a handful of supporting matches. Thin
-    wrapper around the same _rank_by_vector ranking core Ask Correlate and Find
+    wrapper around the same _rank_by_vector ranking core Smart Search and Find
     Similar Tickets already use, so all three stay one implementation, not three."""
     if not text or not text.strip():
         return None
