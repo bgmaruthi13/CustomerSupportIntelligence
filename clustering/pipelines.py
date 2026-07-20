@@ -530,7 +530,7 @@ def _save_global_clusters(engine, tickets, labels, coords_3d, membership_strengt
     """
     from clustering.models import GlobalCluster, GlobalClusterMember
 
-    GlobalCluster.objects.filter(engine=engine).delete()
+    GlobalCluster.objects.filter(engine=engine, run_by=run_by).delete()
 
     computed, recurring_threshold, confidence_threshold = _compute_cluster_stats(
         tickets, labels, membership_strength, stoplist, settings_for_ticket=settings_for_ticket

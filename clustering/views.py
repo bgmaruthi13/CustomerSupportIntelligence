@@ -1,4 +1,3 @@
-import json
 import re
 from collections import Counter
 
@@ -25,7 +24,7 @@ from clustering.settings_utils import default_settings_for
 from clustering.settings_utils import get_or_default as get_clustering_settings
 from clustering.text_utils import build_clustering_text, build_entity_stoplist
 from core.models import Project
-from core.utils import apply_sort, get_current_project
+from core.utils import apply_sort, dumps_for_script, get_current_project
 from tickets.models import MULTI_VALUE_DELIMITERS, Ticket, UploadBatch
 
 SEARCH_RESULTS_LIMIT = 50
@@ -193,14 +192,14 @@ def cluster_detail(request, pk):
         "members": members,
         "copilot_prompt": _build_copilot_prompt(cluster, members_by_similarity),
         "keyword_list": [k.strip() for k in cluster.keywords.split(",") if k.strip()],
-        "by_month_json": json.dumps([
+        "by_month_json": dumps_for_script([
             {"label": r["bucket"].strftime("%Y-%m") if r["bucket"] else "—", "count": r["count"]} for r in by_month
         ]),
-        "by_week_json": json.dumps([
+        "by_week_json": dumps_for_script([
             {"label": r["bucket"].strftime("%Y-%m-%d") if r["bucket"] else "—", "count": r["count"]} for r in by_week
         ]),
-        "by_country_json": json.dumps([{"label": r["country"] or "Unspecified", "count": r["count"]} for r in by_country]),
-        "by_offering_json": json.dumps([{"label": k, "count": v} for k, v in offering_counts.most_common(12)]),
+        "by_country_json": dumps_for_script([{"label": r["country"] or "Unspecified", "count": r["count"]} for r in by_country]),
+        "by_offering_json": dumps_for_script([{"label": k, "count": v} for k, v in offering_counts.most_common(12)]),
         "sub_clusters": apply_sort(
             request, cluster.sub_clusters.filter(is_noise=False), CLUSTERS_SORT_FIELDS,
             default_field="recurring", default_dir="desc", param_prefix="subclusters",
@@ -423,7 +422,7 @@ def explorer(request):
 
     context.update({
         "engine": engine,
-        "points_json": json.dumps(points),
+        "points_json": dumps_for_script(points),
         "point_count": len(points),
         "total_point_count": total_points,
         "is_sampled": total_points > MAX_EXPLORER_POINTS,
@@ -868,10 +867,10 @@ def global_clustering(request):
         return redirect(f"{reverse('clustering:global_clustering')}?engine={engine}")
 
     engine = request.GET.get("engine", "traditional_ml")
-    clusters_qs = GlobalCluster.objects.filter(engine=engine, is_noise=False)
+    clusters_qs = GlobalCluster.objects.filter(engine=engine, is_noise=False, run_by=request.user)
     clusters_qs = apply_sort(request, clusters_qs, GLOBAL_CLUSTERS_SORT_FIELDS, default_field="projects", default_dir="desc")
     intersections = clusters_qs.filter(is_significant_intersection=True)
-    last_run = GlobalCluster.objects.filter(engine=engine).order_by("-run_at").first()
+    last_run = GlobalCluster.objects.filter(engine=engine, run_by=request.user).order_by("-run_at").first()
 
     intersection_data = []
     for cluster in intersections:
@@ -916,7 +915,7 @@ def global_cluster_detail(request, pk):
     (clustering:list), which has no way to show a GlobalCluster's members at all —
     they're a different model, spanning multiple projects, that clustering:list never
     queries. This shows the cluster's own composition instead."""
-    cluster = get_object_or_404(GlobalCluster, id=pk)
+    cluster = get_object_or_404(GlobalCluster, id=pk, run_by=request.user)
     members = apply_sort(
         request,
         GlobalClusterMember.objects.filter(cluster=cluster).select_related("ticket", "project"),
@@ -950,7 +949,7 @@ def global_explorer(request):
     import random
 
     engine = request.GET.get("engine", "traditional_ml")
-    base_qs = GlobalClusterMember.objects.filter(cluster__engine=engine)
+    base_qs = GlobalClusterMember.objects.filter(cluster__engine=engine, cluster__run_by=request.user)
     total_points = base_qs.count()
 
     if total_points > MAX_EXPLORER_POINTS:
@@ -982,7 +981,7 @@ def global_explorer(request):
     context = {
         "active_nav": "global-clustering",
         "engine": engine,
-        "points_json": json.dumps(points),
+        "points_json": dumps_for_script(points),
         "point_count": len(points),
         "total_point_count": total_points,
         "is_sampled": total_points > MAX_EXPLORER_POINTS,
