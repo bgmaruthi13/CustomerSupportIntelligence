@@ -37,7 +37,7 @@
     <div class="pipeline-arrow">↓</div>
     <div class="pipeline-step"><div class="step-num" style="background:var(--amber)">6</div><div><div class="step-label">Ticket Lookup Tools</div><div class="step-desc">Ask Correlate (semantic search), Categorize Tickets (queue suggestion), and Possible Duplicates all run on demand, independent of the main clustering runs.</div></div></div>
     <div class="pipeline-arrow">↓</div>
-    <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Capture a Resolution</div><div class="step-desc">Build a prompt from a cluster's data, paste it into your own Microsoft Copilot chat (nothing is sent by this app), then save the response back to the cluster as its resolution notes.</div></div></div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Capture AI-Assisted Notes</div><div class="step-desc">Build a prompt from a cluster's data, paste it into your own Microsoft Copilot chat (nothing is sent by this app), then save the response back — as a one-line AI Summary, a trend explanation, or full resolution notes.</div></div></div>
   </div>
 </div>
 
@@ -81,6 +81,8 @@
         <tr><td class="dim">Problem Clusters</td><td>Ranked list of recurring ticket groups, each with a confidence score, trend, and (where the data supports it) a regional breakdown.</td><td>"Email Delivery Delays" shows a Rising trend at 88% confidence and gets flagged as a Problem Candidate.</td></tr>
         <tr><td class="dim">Cluster Explorer</td><td>2D/3D scatter plot of every cluster's tickets, positioned by similarity.</td><td>Spot that two clusters that look separate in the list are actually close together on the map, hinting they should be reviewed together.</td></tr>
         <tr><td class="dim">Drill Down</td><td>Re-cluster one cluster's own tickets into finer sub-groups, from its detail page.</td><td>A broad "Login Issues" cluster of 200 tickets drills down into "VPN Timeout", "MFA Token Expired", and "Password Reset Loop".</td></tr>
+        <tr><td class="dim">AI Summary</td><td>Build a prompt from a cluster's data, paste it into your own Copilot chat, and save back a one-line plain-English headline.</td><td>Paste a cluster's data into Copilot, get back "Nightly batch jobs are timing out during scheduled runs" — replaces raw TF-IDF keywords as the cluster's headline everywhere it's listed.</td></tr>
+        <tr><td class="dim">Trend Explanation</td><td>Same bridge, asking for a hypothesis behind a Rising/Falling trend, built from the cluster's most-recent tickets. Hidden for Stable clusters, since there's no shift to explain.</td><td>Trend says "Rising" with a count comparison as its basis; the pasted-back hypothesis adds "likely tied to a recent batch scheduler change."</td></tr>
         <tr><td class="dim">Resolution Notes</td><td>Build a prompt from a cluster's data, paste it into your own Copilot chat, and save the answer back to the cluster.</td><td>Generate a prompt for "Email Delivery Delays", paste it into Microsoft Copilot Chat, then save the suggested root cause as the cluster's resolution notes.</td></tr>
       </tbody>
     </table>
@@ -146,7 +148,7 @@
       <li>Sensitive-data scanning (regex + Luhn/IBAN checksum + phone-number parsing) is assumed to catch the common, well-structured formats — card numbers, IBANs, phone numbers — not a certified DLP/PII product covering every possible sensitive-data shape.</li>
       <li>A ticket pair is assumed to be a likely duplicate only when similarity is very high (≥92%) <em>and</em> close in time (7 days) <em>and</em> shares a reporter or application — high text similarity alone is treated as insufficient, since two distinct-but-related issues can still read as similar.</li>
       <li>Queue-suggestion voting trusts whatever queue values already exist in your uploaded data as ground truth — if those source labels are inconsistent, suggestions inherit that inconsistency.</li>
-      <li>Resolution capture assumes a human in the loop: this app builds the prompt, but a person pastes it into their own Copilot chat and pastes the answer back — there's no server-side call to any LLM anywhere in this build.</li>
+      <li>AI Summary, Trend Explanation, and Resolution capture all assume a human in the loop: this app builds the prompt, but a person pastes it into their own Copilot chat and pastes the answer back — there's no server-side call to any LLM anywhere in this build.</li>
       <li>SQLite is assumed sufficient for this scale of use (single team, moderate ticket volumes); a production multi-user rollout would need PostgreSQL, per the original proposal.</li>
     </ul>
   </div>
@@ -156,7 +158,7 @@
   <div class="card-header"><div class="card-title">5. Known Limitations</div></div>
   <div class="card-body pad">
     <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
-      <li><strong>No server-side LLM generation anywhere.</strong> Ask Correlate and Categorize Tickets rank/vote over existing tickets (retrieval, not generation); Copilot-assisted resolution requires a manual copy/paste into an external chat tool this app doesn't control.</li>
+      <li><strong>No server-side LLM generation anywhere.</strong> Ask Correlate and Categorize Tickets rank/vote over existing tickets (retrieval, not generation); AI Summary, Trend Explanation, and resolution notes all require a manual copy/paste into an external chat tool (e.g. Copilot) this app doesn't control.</li>
       <li><strong>Re-running an engine replaces its previous top-level results</strong>, not merges with them — by design, so a stale run never lingers, but it means any manual edits tied to the old clusters (like resolution notes) don't automatically carry over to the new ones if the cluster boundaries shift.</li>
       <li><strong>Resolution notes are tied to a specific cluster row.</strong> If you reset or re-run a pipeline and the cluster IDs change, previously saved notes stay on the old (now-gone) cluster rather than following the "same" issue to its new cluster — this is the clearest current gap between "notes exist" and "notes are durable."</li>
       <li><strong>Queue suggestions need enough labeled data to vote from.</strong> With very few or heavily skewed existing queue values, suggestions get thin and less trustworthy — treat low-agreement suggestions as a starting guess, not a verdict.</li>
@@ -273,6 +275,7 @@
       <div class="recent-item"><div class="recent-icon" style="background:var(--violet)">✓</div><div><div class="recent-name">Queue categorization, duplicate detection</div><div class="recent-meta">Nearest-neighbor tooling built on the same embeddings</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--teal)">✓</div><div><div class="recent-name">Sensitive data (P2) scanning, regional trend breakdown</div><div class="recent-meta">Governance and deeper cluster insight</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--amber)">✓</div><div><div class="recent-name">Drill-down sub-clustering, Copilot-assisted resolution notes</div><div class="recent-meta">Deeper analysis and human-in-the-loop knowledge capture</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--green)">✓</div><div><div class="recent-name">AI Summary and Trend Explanation, same Copilot bridge</div><div class="recent-meta">Plain-English cluster headline and a "why" hypothesis for Rising/Falling trends</div></div></div>
     </div>
   </div>
 
