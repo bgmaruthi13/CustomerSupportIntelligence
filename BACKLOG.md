@@ -13,22 +13,27 @@ on top of the existing platform, so pick items independently based on priority.
 *Everything currently labeled "AI" in the app (the "Generative AI" clustering engine,
 Ask Correlate, Find Similar) is embeddings — semantic search/clustering via
 sentence-transformers, not text generation. There is no LLM API call anywhere in the
-codebase; "Copilot prompt" builds a text block for a human to manually paste into an
-external tool. All items below need one shared building block first: an actual LLM
-API integration wired into `clustering/pipelines.py` (Claude is a natural fit given
-the existing Python/Django stack — no new infra beyond an API key).*
+codebase. No LLM API key is available in this environment — A.1 and A.4 below were
+implemented via the existing copy/paste bridge pattern instead (build a prompt
+server-side → user pastes into their own Copilot chat → pastes the answer back to
+save it), same mechanism `resolution_notes`/`_build_copilot_prompt` already used. A.2,
+A.3, and A.5 don't fit that pattern (A.2 is already effectively covered by the
+existing Resolution card; A.3/A.5 need to run unattended, which the copy/paste bridge
+can't do) — they still need either a real LLM API key or a callable proxy like GitHub
+Models before they're buildable.*
 
-| # | Story | Pts |
-|---|---|---|
-| A.0 | LLM API integration foundation (client wiring, config/API key handling, error/timeout handling, cost guardrails) | 3 |
-| A.1 | Auto-generated cluster summaries — one-line plain-English problem statement from a sample of ticket titles/descriptions, stored on `Cluster.ai_summary` (new field, sibling to existing `trend_reasoning`) | 3 |
-| A.2 | AI-drafted root cause + resolution — extends existing `resolution_notes`/`resolution_source` (add an `ai_suggested` choice alongside `manual`/`copilot_assisted`); analyst reviews/edits the draft instead of starting blank | 5 |
-| A.3 | Ask Correlate synthesis step — turn nearest-neighbor ticket retrieval into an actual RAG answer ("recurred 12 times this quarter, mostly EU, usually resolved by...") instead of stopping at a result list | 5 |
-| A.4 | Anomaly explanation — when a cluster's trend flips to "rising," summarize *why* from a sample of the recent-window tickets (shared vendor, outage window, version number) instead of just the count-comparison sentence | 3 |
-| A.5 | Executive brief narrative generation — LLM turns the KPI snapshot (see Theme B) into 1–2 paragraphs of prose instead of a table of numbers | 2 |
+| # | Story | Pts | Status |
+|---|---|---|---|
+| A.0 | LLM API integration foundation (client wiring, config/API key handling, error/timeout handling, cost guardrails) | 3 | Not started — no API key available |
+| A.1 | Auto-generated cluster summaries — one-line plain-English problem statement, stored on `Cluster.ai_summary` | 3 | **Done** — copy/paste bridge (Copy Prompt → paste into Copilot → save), shown on cluster list + detail |
+| A.2 | AI-drafted root cause + resolution | 5 | Already covered — pre-existing Resolution card (`resolution_notes`/`copilot_assisted`) is this same pattern |
+| A.3 | Ask Correlate synthesis step (RAG answer, not just retrieval) | 5 | Not started — needs an LLM API (unattended, doesn't fit copy/paste) |
+| A.4 | Trend/anomaly explanation — hypothesis for *why* a cluster is rising/falling, stored on `Cluster.ai_trend_explanation` | 3 | **Done** — same copy/paste bridge, sample is the cluster's most-recent tickets; hidden when trend is "stable" |
+| A.5 | Executive brief narrative generation | 2 | Not started — needs an LLM API + Theme B's KPI snapshot first |
 
-**Recommended starting point:** A.0 → A.1 (smallest surface area — one field, one call
-site, no new UI flow — and immediately makes the existing cluster list more readable).
+**Next up:** A.0 (LLM API integration) is the blocker for A.3/A.5 — see the
+conversation note above on GitHub Models as a callable option that doesn't need a
+separate Anthropic/OpenAI subscription.
 
 ---
 

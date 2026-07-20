@@ -18,6 +18,7 @@
     {% endif %}
     <div class="page-title" style="margin-top:6px">{{ cluster.name }}{% if cluster.is_problem_candidate %} <span class="problem-ribbon">Problem Candidate</span>{% endif %}{% if cluster.parent %} <span class="badge badge-grey">Sub-cluster</span>{% endif %}</div>
     <div class="page-subtitle">{{ project.name }} · {{ cluster.get_engine_display }} · {{ cluster.recurring_count }} recurring tickets{% if cluster.source_description %} · from {{ cluster.source_description }}{% endif %}</div>
+    {% if cluster.ai_summary %}<div style="font-size:13px;color:var(--text-primary);font-style:italic;margin-top:6px">"{{ cluster.ai_summary }}"</div>{% endif %}
   </div>
   {% if can_drill_down %}
   <form method="post" action="{% url 'clustering:drill_down' cluster.id %}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -140,6 +141,71 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">AI Summary</div>
+          <span class="info-dot" data-tip="This app never calls an LLM API. Build a prompt below, paste it into your own Microsoft Copilot chat, then paste the one-line answer back into the box to save it against this cluster." tabindex="0">i</span>
+        </div>
+      </div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="summary" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Copies a prompt built from this cluster's data to your clipboard — nothing is sent anywhere by this app. Paste it into Copilot Desktop or VS Code Copilot Chat, then paste the response back below.</p>
+          <div id="summaryCopyFallback" class="copy-fallback" style="display:none;margin-top:8px">
+            <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>
+            <textarea class="copy-fallback-text" readonly rows="6" style="width:100%;font-size:11px;font-family:monospace" onclick="this.select()"></textarea>
+          </div>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_ai_summary">
+          <div class="form-field">
+            <label>One-line summary</label>
+            <textarea name="ai_summary" rows="2" style="width:100%" maxlength="500">{{ cluster.ai_summary }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Save AI Summary</button>
+        </form>
+      </div>
+    </div>
+
+    {% if trend_explanation_prompt %}
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">Why Is This Trending?</div>
+          <span class="info-dot" data-tip="trend_reasoning (above, under Trend) only states the ticket-count comparison behind the Rising/Falling label — never a cause. This asks Copilot for a hypothesis based on the cluster's most recent tickets." tabindex="0">i</span>
+        </div>
+      </div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        {% if cluster.ai_trend_explanation %}
+        <div style="padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6">{{ cluster.ai_trend_explanation }}</div>
+        </div>
+        {% endif %}
+        <div>
+          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="trend" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Same bridge — copies a prompt to your clipboard, nothing sent anywhere by this app. Paste the response back below.</p>
+          <div id="trendCopyFallback" class="copy-fallback" style="display:none;margin-top:8px">
+            <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>
+            <textarea class="copy-fallback-text" readonly rows="6" style="width:100%;font-size:11px;font-family:monospace" onclick="this.select()"></textarea>
+          </div>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_trend_explanation">
+          <div class="form-field">
+            <label>Hypothesis</label>
+            <textarea name="ai_trend_explanation" rows="3" style="width:100%" maxlength="500">{{ cluster.ai_trend_explanation }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Save Trend Explanation</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
     {% if cluster.regional_trends %}
     <div class="card">
       <div class="card-header">
@@ -214,11 +280,11 @@
         {% endif %}
 
         <div>
-          <button type="button" class="btn btn-outline" id="copyPromptBtn" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="resolution" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
           <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Copies a prompt built from this cluster's data to your clipboard — nothing is sent anywhere by this app. Paste it into Copilot Desktop or VS Code Copilot Chat, then paste the response back below.</p>
-          <div id="copyPromptFallback" style="display:none;margin-top:8px">
+          <div id="resolutionCopyFallback" class="copy-fallback" style="display:none;margin-top:8px">
             <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>
-            <textarea id="copyPromptFallbackText" readonly rows="6" style="width:100%;font-size:11px;font-family:monospace" onclick="this.select()"></textarea>
+            <textarea class="copy-fallback-text" readonly rows="6" style="width:100%;font-size:11px;font-family:monospace" onclick="this.select()"></textarea>
           </div>
         </div>
 
@@ -257,15 +323,20 @@
 
 {% block extra_scripts %}
 <script>
-  const copilotPromptText = "{{ copilot_prompt|escapejs }}";
-  const copyPromptBtn = document.getElementById('copyPromptBtn');
-  const copyPromptFallback = document.getElementById('copyPromptFallback');
-  const copyPromptFallbackText = document.getElementById('copyPromptFallbackText');
+  // One prompt per copy/paste bridge card (Resolution, AI Summary, Trend
+  // Explanation) — trend is only present when trend_explanation_prompt was built
+  // (cluster.trend != "stable"), so its key is omitted otherwise rather than set
+  // to an empty/None string.
+  const copyPrompts = {
+    resolution: "{{ copilot_prompt|escapejs }}",
+    summary: "{{ summary_prompt|escapejs }}",
+    {% if trend_explanation_prompt %}trend: "{{ trend_explanation_prompt|escapejs }}",{% endif %}
+  };
 
-  function flashCopied() {
-    const original = copyPromptBtn.textContent;
-    copyPromptBtn.textContent = 'Copied!';
-    setTimeout(() => { copyPromptBtn.textContent = original; }, 1800);
+  function flashCopied(btn) {
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1800);
   }
 
   // execCommand is deprecated but is the only copy path available outside a
@@ -290,25 +361,31 @@
     return ok;
   }
 
-  function showManualFallback() {
-    copyPromptFallbackText.value = copilotPromptText;
-    copyPromptFallback.style.display = 'block';
-    copyPromptBtn.textContent = 'Copy failed — select text below';
+  function showManualFallback(btn, key, text) {
+    const fallback = document.getElementById(key + 'CopyFallback');
+    if (fallback) {
+      fallback.querySelector('.copy-fallback-text').value = text;
+      fallback.style.display = 'block';
+    }
+    btn.textContent = 'Copy failed — select text below';
   }
 
-  if (copyPromptBtn) {
-    copyPromptBtn.addEventListener('click', () => {
+  document.querySelectorAll('.copy-prompt-btn').forEach((btn) => {
+    const key = btn.dataset.copyKey;
+    const text = copyPrompts[key];
+    if (!text) return;
+    btn.addEventListener('click', () => {
       if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(copilotPromptText).then(flashCopied, () => {
-          if (!legacyCopy(copilotPromptText)) showManualFallback(); else flashCopied();
+        navigator.clipboard.writeText(text).then(() => flashCopied(btn), () => {
+          if (!legacyCopy(text)) showManualFallback(btn, key, text); else flashCopied(btn);
         });
-      } else if (legacyCopy(copilotPromptText)) {
-        flashCopied();
+      } else if (legacyCopy(text)) {
+        flashCopied(btn);
       } else {
-        showManualFallback();
+        showManualFallback(btn, key, text);
       }
     });
-  }
+  });
 
   const monthData = {{ by_month_json|safe }};
   new Chart(document.getElementById('monthChart'), {

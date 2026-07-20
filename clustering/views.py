@@ -133,6 +133,49 @@ def _build_copilot_prompt(cluster, members):
     return "\n".join(lines)
 
 
+def _build_summary_prompt(cluster, members):
+    """Same copy/paste bridge as _build_copilot_prompt, asking for something
+    different: not a root cause, just a one-line plain-English restatement of what
+    this cluster is — the mechanical TF-IDF `keywords` field isn't a sentence a
+    support manager would say out loud."""
+    sample_titles = [m.ticket.title for m in members[:10]]
+    lines = [
+        "Here is a cluster of related IT support tickets. In ONE short, plain-English "
+        "sentence — the kind a support manager would say out loud, not a list of "
+        "keywords — summarize what problem this cluster represents.",
+        "",
+        f"Cluster keywords: {cluster.keywords}",
+        f"Recurring tickets: {cluster.recurring_count}",
+        f"Top application: {cluster.top_application}",
+        "",
+        "Sample ticket titles:",
+    ]
+    lines += [f"- {t}" for t in sample_titles]
+    return "\n".join(lines)
+
+
+def _build_trend_explanation_prompt(cluster, recent_members):
+    """Same bridge again, this time asking for a hypothesis behind the trend label.
+    trend_reasoning (see clustering.scoring.compute_trend) only states the count/
+    date-window basis for Rising/Falling — never a cause. Built from the cluster's
+    most-recent tickets specifically, since a cause for a *recent* shift is more
+    likely visible in what's showing up lately than across the cluster's full
+    history."""
+    sample_titles = [m.ticket.title for m in recent_members[:10]]
+    lines = [
+        f"A cluster of related IT support tickets is currently trending "
+        f"'{cluster.get_trend_display()}'. Basis for that label: {cluster.trend_reasoning}",
+        "",
+        "Based on the sample of its MOST RECENT ticket titles below, suggest a likely "
+        "reason for this trend in 1-2 sentences (e.g. a shared vendor, a recent change, "
+        "a seasonal pattern) — a hypothesis worth investigating, not a certainty.",
+        "",
+        "Most recent ticket titles:",
+    ]
+    lines += [f"- {t}" for t in sample_titles]
+    return "\n".join(lines)
+
+
 MEMBERS_SORT_FIELDS = {
     "title": "ticket__title",
     "created": "ticket__created_at",
@@ -169,6 +212,23 @@ def cluster_detail(request, pk):
         messages.success(request, "Resolution notes saved.") if notes else messages.success(request, "Resolution notes cleared.")
         return redirect("clustering:detail", pk=cluster.id)
 
+    if request.method == "POST" and request.POST.get("action") == "save_ai_summary":
+        cluster.ai_summary = request.POST.get("ai_summary", "").strip()
+        cluster.save(update_fields=["ai_summary"])
+        messages.success(request, "AI summary saved.") if cluster.ai_summary else messages.success(request, "AI summary cleared.")
+        return redirect("clustering:detail", pk=cluster.id)
+
+    if request.method == "POST" and request.POST.get("action") == "save_trend_explanation":
+        cluster.ai_trend_explanation = request.POST.get("ai_trend_explanation", "").strip()
+        cluster.save(update_fields=["ai_trend_explanation"])
+        messages.success(request, "Trend explanation saved.") if cluster.ai_trend_explanation else messages.success(request, "Trend explanation cleared.")
+        return redirect("clustering:detail", pk=cluster.id)
+
+    # Most-recent-first sample for the trend-explanation prompt — a cause for a
+    # *recent* shift is more likely visible in what's showing up lately than across
+    # the cluster's full history (which members_by_similarity/members represent).
+    members_by_recency = ClusterMember.objects.filter(cluster=cluster).select_related("ticket").order_by("-ticket__created_at")[:10]
+
     tickets_qs = Ticket.objects.filter(cluster_memberships__cluster=cluster)
     by_month = (
         tickets_qs.annotate(bucket=TruncMonth("created_at")).values("bucket").annotate(count=Count("id")).order_by("bucket")
@@ -191,6 +251,8 @@ def cluster_detail(request, pk):
         "cluster": cluster,
         "members": members,
         "copilot_prompt": _build_copilot_prompt(cluster, members_by_similarity),
+        "summary_prompt": _build_summary_prompt(cluster, members_by_similarity),
+        "trend_explanation_prompt": _build_trend_explanation_prompt(cluster, members_by_recency) if cluster.trend != "stable" else None,
         "keyword_list": [k.strip() for k in cluster.keywords.split(",") if k.strip()],
         "by_month_json": dumps_for_script([
             {"label": r["bucket"].strftime("%Y-%m") if r["bucket"] else "—", "count": r["count"]} for r in by_month

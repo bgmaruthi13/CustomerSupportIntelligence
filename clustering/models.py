@@ -41,6 +41,20 @@ class Cluster(models.Model):
     regional_trends = models.JSONField(default=list, blank=True, help_text="Per-country trend breakdown, top 5 countries by ticket count: [{country, trend, reasoning, count}, ...]")
     regional_divergence = models.BooleanField(default=False, help_text="True when a region is rising while the cluster's overall trend isn't — a problem that looks fine in aggregate")
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='sub_clusters', help_text="Set when this cluster is a drill-down sub-cluster of another cluster, rather than a top-level pipeline result")
+    ai_summary = models.CharField(
+        max_length=500, blank=True,
+        help_text="One-line plain-English problem summary — pasted back from an external AI "
+                   "chat (Copilot/Claude/etc.) via the same copy/paste bridge as Resolution. "
+                   "Supplements the mechanical TF-IDF `name`/`keywords` with a sentence a "
+                   "support manager would actually say out loud.",
+    )
+    ai_trend_explanation = models.CharField(
+        max_length=500, blank=True,
+        help_text="AI-drafted hypothesis for *why* this cluster's trend moved the way it did "
+                   "(e.g. a shared vendor, a recent change) — pasted back via the same bridge. "
+                   "Supplements trend_reasoning, which only states the count/date-window basis "
+                   "for the label, not a cause.",
+    )
     resolution_notes = models.TextField(blank=True, help_text="Either analyst-authored or pasted back from an external AI chat (e.g. Copilot) — see resolution_source")
     resolution_source = models.CharField(max_length=20, blank=True, choices=[("manual", "Analyst-authored"), ("copilot_assisted", "AI-suggested via Copilot")])
     resolution_added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")

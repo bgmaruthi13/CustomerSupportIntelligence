@@ -65,6 +65,7 @@
         <tr>
           <td>
             <div class="task-name">{{ c.name }}{% if c.is_problem_candidate %} <span class="problem-ribbon">Candidate</span>{% endif %}{% if c.regional_divergence %} <span class="badge badge-amber" title="A region is rising while the cluster's overall trend isn't — see the cluster detail page for the breakdown">⚠ Regional divergence</span>{% endif %}{% if c.sub_cluster_count %} <span class="badge badge-grey">{{ c.sub_cluster_count }} sub-cluster{{ c.sub_cluster_count|pluralize }}</span>{% endif %}</div>
+            {% if c.ai_summary %}<div class="task-process" style="font-style:italic;color:var(--text-primary)">"{{ c.ai_summary }}"</div>{% endif %}
             <div class="task-process">{{ c.keywords }}</div>
           </td>
           <td>{{ c.recurring_count }}</td>
