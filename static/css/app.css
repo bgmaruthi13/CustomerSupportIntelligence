@@ -456,6 +456,20 @@ body {
 .badge-violet { background: var(--violet-bg); color: var(--violet); }
 .badge-grey   { background: var(--neutral-hover); color: var(--text-secondary); }
 
+/* Platform Guide "Feature Map" — tiered category cards, each tier roughly the
+   order things happen in, connected by a plain down-arrow (not per-feature
+   lines, which get fragile at responsive widths). */
+.feature-map-tier { display:flex; gap:14px; justify-content:center; margin-bottom:6px; flex-wrap:wrap; }
+.feature-map-cat { background:var(--card-bg); border:1px solid var(--border); border-top:3px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; min-width:160px; flex:1; }
+.feature-map-cat h4 { margin:0 0 8px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
+.feature-map-cat .badge { margin:2px 4px 0 0; }
+.feature-map-arrow { text-align:center; color:var(--text-muted); font-size:16px; margin:2px 0 10px; }
+/* Marks the Copilot copy/paste-bridge features (AI Summary, AI Trend
+   Explanation, Resolution Notes) within their category — outlined/dashed
+   instead of solid-filled, since they need a manual paste-back step the rest
+   of that category's features don't. */
+.badge.copilot-chip { background:var(--card-bg); border:1px dashed currentColor; }
+
 .conf-bar-wrap { display:flex; align-items:center; gap:8px; }
 .conf-bar { width:60px; height:6px; background:var(--neutral-hover); border-radius:3px; overflow:hidden; }
 .conf-bar-fill { height:100%; border-radius:3px; }

@@ -44,7 +44,64 @@
 <div class="card" id="features" style="margin-bottom:20px;scroll-margin-top:16px">
   <div class="card-header"><div class="card-title">2. Every Feature, with Examples</div></div>
 
-  <div class="card-body pad" style="padding-bottom:6px">
+  <div class="card-body pad" style="padding-bottom:10px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:10px">Feature Map</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--primary)">
+        <h4 style="color:var(--primary)">Data Management</h4>
+        <span class="badge badge-blue">Upload Data</span>
+        <span class="badge badge-blue">Data Analysis</span>
+      </div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--teal)">
+        <h4 style="color:var(--teal)">Clustering — Traditional ML</h4>
+        <span class="badge badge-teal">TF-IDF + HDBSCAN</span>
+      </div>
+      <div class="feature-map-cat" style="border-top-color:var(--violet)">
+        <h4 style="color:var(--violet)">Clustering — Generative AI</h4>
+        <span class="badge badge-violet">Sentence Embeddings</span>
+      </div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--violet);flex:2">
+        <h4 style="color:var(--violet)">Problem Insights <span style="font-weight:400;text-transform:none;color:var(--text-muted)">+ Cross-Project</span></h4>
+        <span class="badge badge-violet">Problem Clusters</span>
+        <span class="badge badge-violet">Cluster Explorer</span>
+        <span class="badge badge-violet copilot-chip">AI Summary</span>
+        <span class="badge badge-violet copilot-chip">AI Trend Explanation</span>
+        <span class="badge badge-violet copilot-chip">Resolution Notes</span>
+        <span class="badge badge-violet">Global Clustering</span>
+      </div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--amber)">
+        <h4 style="color:var(--amber)">Lookup Tools</h4>
+        <span class="badge badge-amber">Smart Search</span>
+        <span class="badge badge-amber">Smart Assign</span>
+        <span class="badge badge-amber">Quick Triage</span>
+      </div>
+      <div class="feature-map-cat" style="border-top-color:var(--red)">
+        <h4 style="color:var(--red)">Data Quality &amp; Compliance</h4>
+        <span class="badge badge-red">Sensitive Data Report</span>
+        <span class="badge badge-red">Possible Duplicates</span>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--text-muted)">
+      <span class="badge badge-grey copilot-chip">dashed</span>
+      = uses the Copilot copy/paste bridge (build a prompt, paste into your own Copilot chat, paste the answer back) — no server-side LLM call. Workspace (Projects) wraps around all of it, cutting across every category.
+    </div>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px;border-top:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Data Management</div>
   </div>
   <div class="card-body">
