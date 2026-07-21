@@ -12,6 +12,36 @@ This mirrors `install.bat`'s dev setup (same venv, same `manage.py migrate` /
 `collectstatic` steps) but skips `runserver` and `DEBUG=True` — this is the
 production path, not the quick-start one.
 
+**Quick paths — two scripts, pick based on what you actually need:**
+
+- **`run-as-service.ps1`** — just "runs as a Windows Service, reachable at
+  `http://hostname:port/`." No IIS, no ARR, no TLS. Registers the service bound
+  to every network interface (not just loopback) so other machines can reach it
+  directly. This is almost always the right starting point.
+  ```powershell
+  cd deploy\windows
+  .\run-as-service.ps1                          # -> http://<this machine's hostname>:8000/
+  .\run-as-service.ps1 -Hostname reports -Port 80  # -> http://reports/  (no port suffix)
+  ```
+- **`deploy-all.ps1`** — the full production path below (IIS + URL Rewrite +
+  ARR + a real hostname on port 80/443 + optional TLS), bundled into one
+  script. Reach for this only once you actually need HTTPS or a clean hostname
+  with no port number — it's meaningfully more moving parts (installs IIS
+  itself if missing, detects Windows Server vs. a client OS automatically since
+  `Install-WindowsFeature` doesn't exist on client Windows at all).
+  ```powershell
+  cd deploy\windows
+  .\deploy-all.ps1 -Hostname correlate.yourcompany.local
+  # or, with a real certificate already installed:
+  .\deploy-all.ps1 -Hostname correlate.yourcompany.com -UseHttps -CertThumbprint AB12CD34...
+  ```
+
+Both end with an actual pass/fail check (hitting `/healthz/` through the real
+URL you'd browse to) rather than assuming success. Read the steps below anyway
+before running either against a real box — registering a Windows Service (and,
+for `deploy-all.ps1`, installing IIS/ARR) are system-level, hard-to-reverse
+changes.
+
 ## Development vs. production — both work, same codebase
 
 Nothing about this deployment setup replaces or breaks `manage.py runserver`.
@@ -160,5 +190,7 @@ nssm start CorrelateAI
 | File | Purpose |
 |---|---|
 | `serve.py` | Production WSGI entrypoint — runs the app under waitress. |
-| `install-service.ps1` | Registers `serve.py` as an auto-restarting Windows Service via NSSM. |
+| `install-service.ps1` | Registers `serve.py` as an auto-restarting Windows Service via NSSM. `-BindHost` controls whether it's loopback-only (default, for the IIS path) or open to the network (`0.0.0.0`, for the direct `hostname:port` path). |
+| `run-as-service.ps1` | Quick path: app setup + Windows Service, bound to `0.0.0.0`, no IIS. |
+| `deploy-all.ps1` | Quick path: everything, including IIS + ARR + URL Rewrite + TLS. |
 | `web.config` | IIS + ARR reverse-proxy rule (goes in the IIS site root, not the app folder). |

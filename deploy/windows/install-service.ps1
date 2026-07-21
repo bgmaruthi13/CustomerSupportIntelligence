@@ -26,7 +26,13 @@ param(
     [string]$ServiceName = "CorrelateAI",
     [string]$NssmExe = "nssm.exe",
     [int]$Port = 8000,
-    [int]$Threads = 4
+    [int]$Threads = 4,
+    # Defaults to loopback-only, matching the IIS-in-front deployment this script
+    # was originally written for (see README.md) - the app process itself should
+    # never be directly reachable unless something's deliberately choosing that.
+    # Pass "0.0.0.0" to listen on every interface for direct hostname:port access
+    # with no reverse proxy in front (see run-as-service.ps1 for that simpler path).
+    [string]$BindHost = "127.0.0.1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,7 +61,7 @@ if (-not $nssmCmd) {
           "extract nssm.exe (win64 build) somewhere on PATH, then re-run this script."
 }
 
-Write-Host "Installing '$ServiceName' as a Windows Service (waitress on 127.0.0.1:$Port)..." -ForegroundColor Cyan
+Write-Host "Installing '$ServiceName' as a Windows Service (waitress on ${BindHost}:$Port)..." -ForegroundColor Cyan
 
 # Remove a prior install of the same name so re-running this script is safe
 # (idempotent), matching how the rest of this app's deploy tooling behaves.
@@ -70,7 +76,7 @@ if ($existing) {
 & $NssmExe set $ServiceName AppDirectory $AppRoot
 & $NssmExe set $ServiceName DisplayName "Correlate AI (waitress)"
 & $NssmExe set $ServiceName Description "Correlate AI ITSM ticket-clustering app, served by waitress. Reverse-proxied by IIS/ARR - do not expose this port directly."
-& $NssmExe set $ServiceName AppEnvironmentExtra "WAITRESS_HOST=127.0.0.1" "WAITRESS_PORT=$Port" "WAITRESS_THREADS=$Threads"
+& $NssmExe set $ServiceName AppEnvironmentExtra "WAITRESS_HOST=$BindHost" "WAITRESS_PORT=$Port" "WAITRESS_THREADS=$Threads"
 
 # Auto-restart on crash, but don't hot-loop-restart if it's crashing immediately
 # on every launch - NSSM's default throttle (1500ms) already covers that; this
