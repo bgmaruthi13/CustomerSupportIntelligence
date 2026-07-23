@@ -134,6 +134,87 @@ def detect_pii(text, include_phone=True):
     return findings
 
 
+def redact_pii(text, include_phone=True):
+    """Returns `text` with every detected PII span replaced by a bracketed type
+    label (e.g. "user@example.com" -> "[EMAIL]") — the raw value is gone
+    entirely, not just masked in a separate preview the way detect_pii()'s
+    findings are. Built for contexts where a whole line/text needs to be safe
+    to display verbatim (e.g. a log pattern cluster's representative example),
+    not just have individual matches flagged elsewhere. Reuses the exact same
+    regex/checksum matching detect_pii() uses, so a value detect_pii() would
+    flag is exactly a value this redacts — same detection, different output.
+
+    Address detection is a whole-text heuristic (postal code + street keyword
+    both present somewhere in the text), not a specific span — there's nothing
+    to redact for it here beyond whatever email/card/iban/phone/account spans
+    happen to also be present in the same text. Not a claim that address
+    content elsewhere in the line gets scrubbed."""
+    if not text or not isinstance(text, str):
+        return text or ""
+
+    spans = []  # (start, end, label) — appended in roughly detect_pii()'s own priority order
+
+    for m in EMAIL_RE.finditer(text):
+        spans.append((m.start(), m.end(), "[EMAIL]"))
+
+    for m in IBAN_RE.finditer(text):
+        if iban_valid(m.group()):
+            spans.append((m.start(), m.end(), "[IBAN]"))
+
+    card_spans = set()
+    for m in CARD_RE.finditer(text):
+        digits = re.sub(r"[ -]", "", m.group())
+        if 13 <= len(digits) <= 19 and luhn_valid(digits):
+            card_spans.add(m.span())  # untrimmed — kept as-is for the account-number overlap check below
+            # CARD_RE's repeated `\d[ -]?` group can pull a trailing space/dash
+            # into the match itself (e.g. matching "4111111111111111 " with the
+            # space) — harmless for detect_pii()'s masked_preview (built from
+            # `digits` above, already stripped of separators) but would eat a
+            # real space out of the redacted line here if not trimmed back off.
+            end = m.end()
+            while end > m.start() and text[end - 1] in " -":
+                end -= 1
+            spans.append((m.start(), end, "[CARD]"))
+
+    if include_phone and any(ch.isdigit() for ch in text):
+        try:
+            for match in phonenumbers.PhoneNumberMatcher(text, "US"):
+                spans.append((match.start, match.start + len(match.raw_string), "[PHONE]"))
+        except Exception:
+            pass
+
+    for m in ACCOUNT_NUMBER_RE.finditer(text):
+        if any(m.start() >= s and m.end() <= e for s, e in card_spans):
+            continue
+        spans.append((m.start(), m.end(), "[ACCOUNT]"))
+
+    if not spans:
+        return text
+
+    # Stable sort by start position — for spans with the same start, the
+    # priority order they were appended in above (email > iban > card > phone
+    # > account) survives the sort. Overlapping spans after that just keep
+    # whichever was accepted first and drop the rest, rather than risk a
+    # mangled double-replace.
+    spans.sort(key=lambda s: s[0])
+    accepted = []
+    last_end = -1
+    for start, end, label in spans:
+        if start < last_end:
+            continue
+        accepted.append((start, end, label))
+        last_end = end
+
+    result = []
+    cursor = 0
+    for start, end, label in accepted:
+        result.append(text[cursor:start])
+        result.append(label)
+        cursor = end
+    result.append(text[cursor:])
+    return "".join(result)
+
+
 # Columns mapped to one of these target fields are *expected* to hold a name or
 # email — that's what the field is for. A finding there isn't a surprise leak the
 # way the same pattern showing up in an unmapped column or a free-text field like

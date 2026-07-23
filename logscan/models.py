@@ -29,6 +29,14 @@ JOB_TRIGGERED_BY_CHOICES = [
     ("continuous", "Continuous (tailing)"),
 ]
 
+PATTERN_ENGINE_CHOICES = [
+    ("traditional_ml", "Traditional ML"),
+    # Only engine built so far — a Generative AI (embedding-based) variant is a
+    # natural follow-on once this is proven, same two-engine shape as
+    # clustering.models.Cluster already uses for tickets. This choices list
+    # exists now so adding that later doesn't need a migration to widen the field.
+]
+
 
 class LogSource(models.Model):
     """A configured log file/location to scan for sensitive data — deliberately
@@ -182,3 +190,40 @@ class LogPIIFinding(models.Model):
 
     def __str__(self):
         return f"{self.pii_type} in {self.file_path}:{self.line_number}"
+
+
+class LogPatternCluster(models.Model):
+    """One recurring pattern/template found by unsupervised clustering over a
+    bounded, recent slice of a log file — the log-analysis equivalent of
+    clustering.models.Cluster, but deliberately simpler: no per-country/
+    per-application breakdown (nothing structured to break down by on a raw log
+    line), and no trend/recency scoring yet (needs per-line timestamp parsing,
+    which this first phase doesn't attempt — see logscan/pattern_analysis.py).
+
+    No member-level rows the way Cluster has ClusterMember: raw log line text
+    is deliberately never persisted anywhere in this app (see LogPIIFinding's
+    docstring) — only this aggregate per-cluster summary is kept, and
+    example_line is redact_pii()'d before it's ever saved, not just masked in
+    a preview. Wiped and rebuilt per (source, file_path) on every run, same
+    convention Cluster already uses."""
+
+    source = models.ForeignKey(LogSource, on_delete=models.CASCADE, related_name="pattern_clusters")
+    file_path = models.CharField(max_length=1000, help_text="Which file this run analyzed — that source's own filename for path/upload sources")
+    engine = models.CharField(max_length=20, choices=PATTERN_ENGINE_CHOICES, default="traditional_ml")
+
+    name = models.CharField(max_length=255)
+    keywords = models.CharField(max_length=500, blank=True)
+    example_line = models.CharField(max_length=1000, blank=True, help_text="One representative line from this cluster, normalized and redact_pii()'d before saving — never the raw line")
+    recurring_count = models.PositiveIntegerField(default=0)
+    confidence = models.FloatField(default=0.0)
+    is_noise = models.BooleanField(default=False, help_text="True for the catch-all 'unclustered' bucket, same convention as clustering.models.Cluster")
+    lines_analyzed = models.PositiveIntegerField(default=0, help_text="How many lines this run covered in total — context for recurring_count, e.g. '12 of 4,213 recent lines'")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-recurring_count"]
+        indexes = [models.Index(fields=["source", "file_path"])]
+
+    def __str__(self):
+        return f"[{self.engine}] {self.name} ({self.recurring_count})"

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Log Patterns{% endblock %}
+{% block breadcrumb %}Log Sources › {{ source.name }} › Patterns{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <a href="{% url 'logscan:sources' %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Log Sources</a>
+    <div class="page-title" style="margin-top:6px">Log Patterns — {{ source.name }}</div>
+    <div class="page-subtitle">Recurring message templates found in a recent slice of {{ source.display_location }} — timestamps, IPs, and IDs normalized out before clustering, so the same underlying message with different values collapses into one pattern.</div>
+  </div>
+  <form method="post" action="{% url 'logscan:find_patterns' source.id %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Re-run Find Patterns</button>
+  </form>
+</div>
+
+{% if clusters %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Patterns</div>
+    <div class="card-subtitle">{{ clusters.0.lines_analyzed }} recent lines analyzed</div>
+  </div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>Pattern</th>
+        <th>Recurring</th>
+        <th>Confidence</th>
+        <th>Example (redacted)</th>
+      </tr></thead>
+      <tbody>
+        {% for c in clusters %}
+        <tr>
+          <td>
+            <div class="task-name">{{ c.name }}{% if c.is_noise %} <span class="badge badge-grey">Unclustered</span>{% endif %}</div>
+            <div class="task-process">{{ c.keywords }}</div>
+          </td>
+          <td>{{ c.recurring_count }}</td>
+          <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:var(--violet)"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+          <td><code style="font-size:11.5px">{{ c.example_line|truncatechars:100 }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No patterns found yet — click "Re-run Find Patterns" above, or go back and click "Find Patterns" from the Log Sources list.
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How pattern discovery works</summary>
+  <div class="help-body">
+    <p>Reads the last ~5MB of the file, normalizes each line (timestamps, IPs, UUIDs, and standalone numbers replaced with placeholder tokens), then clusters the normalized lines by shared vocabulary — TF-IDF + HDBSCAN, the same technique Traditional ML clustering uses for tickets. <strong>Unclustered</strong> covers lines that didn't share enough in common with anything else in the window to form a pattern.</p>
+    <p>Confidence here is size and density only (how big the cluster is relative to the largest one found, and how tightly HDBSCAN believes the lines belong together) — unlike ticket clusters, there's no trend/recency signal yet, since that needs reliable per-line timestamp parsing across arbitrary log formats.</p>
+    <p>The example line is never shown raw — it's redacted through the same detection used for the Sensitive Data / Log PII Alerts reports before it's ever saved, so an email, card number, etc. that happens to land in the chosen example shows up as <code>[EMAIL]</code>/<code>[CARD]</code>/etc. instead of the real value.</p>
+    <p>Re-running replaces the previous results for this file entirely — it isn't a running history, just the latest look at the most recent window.</p>
+  </div>
+</details>
+
+{% endblock %}

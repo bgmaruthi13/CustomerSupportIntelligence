@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from logscan.models import LogPIIFinding, LogScanJob, LogSource, LogSourceFile
+from logscan.models import LogPatternCluster, LogPIIFinding, LogScanJob, LogSource, LogSourceFile
 
 
 @admin.register(LogSource)
@@ -19,6 +19,12 @@ class LogScanJobAdmin(admin.ModelAdmin):
 class LogSourceFileAdmin(admin.ModelAdmin):
     list_display = ("source", "relative_path", "last_scanned_offset", "last_seen_at")
     list_filter = ("source",)
+
+
+@admin.register(LogPatternCluster)
+class LogPatternClusterAdmin(admin.ModelAdmin):
+    list_display = ("name", "source", "file_path", "engine", "recurring_count", "confidence", "is_noise", "created_at")
+    list_filter = ("source", "engine", "is_noise")
 
 
 admin.site.register(LogPIIFinding)

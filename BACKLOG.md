@@ -76,6 +76,40 @@ no migrations, fixes something currently misleading users today.
 
 ---
 
+## Theme D — Log scanning: broader PII detection via Presidio
+
+*The `logscan` app's detection (`tickets.pii_detection.detect_pii()`, reused as-is)
+covers email/phone/card/IBAN/account-number/address — email/card/IBAN via regex +
+checksum (Luhn, mod-97), account-number/address as explicitly best-effort heuristics.
+Two real gaps: no name detection at all, and address detection is a weak
+postal-code-plus-keyword guess. Microsoft's
+[Presidio](https://github.com/microsoft/presidio) closes both — regex+checksum
+recognizers for the same structured types (email/card/IBAN/phone) plus dozens of
+national-ID formats (SSN, Aadhaar, NHS number, etc.), and real NER-based `PERSON`/
+`LOCATION` detection via a spaCy model.*
+
+*The key design constraint carried over from `logscan`'s original build: a 100GB
+file scan can't pay per-line NER inference cost by default, the same reason phone
+detection (`scan_phone_numbers`) is opt-in today. Presidio's NLP engine can reportedly
+be disabled to run only its regex-based recognizers (no spaCy load, no inference cost)
+— **this needs to be benchmarked for real before committing to the design**, not
+just trusted from docs, the same rigor the rest of `logscan` was verified with.*
+
+| # | Story | Pts | Status |
+|---|---|---|---|
+| D.0 | Benchmark: install `presidio-analyzer`, confirm NLP-engine-disabled mode is actually as fast as the current regex-only `detect_pii()` on a real test file — go/no-go gate for D.1 | 2 | Not started |
+| D.1 | Replace `detect_pii()`'s hand-rolled email/card/IBAN/phone/account regex with Presidio's equivalent regex-based recognizers (NLP engine disabled) — same speed, broader coverage (adds national-ID formats), one less thing to hand-maintain. Remap onto existing `PII_TYPES`/`LogPIIFinding`/`PIIFinding` schema | 5 | Not started — blocked on D.0 |
+| D.2 | Add `PERSON`/`LOCATION` detection as a new opt-in-per-source toggle (`use_name_location_detection`, off by default — same pattern as `scan_phone_numbers`), backed by Presidio's NLP engine + `en_core_web_sm` (13MB — smallest spaCy model; upgrade to `en_core_web_md` later only if `sm`'s accuracy proves too weak in practice) | 5 | Not started — blocked on D.1 |
+| D.3 | Re-verify: chunk-boundary correctness, synthetic planted-value tests, and the full end-to-end browser verification `logscan` was originally built with — against the new engine, not assumed carried over | 3 | Not started — blocked on D.1/D.2 |
+
+**Recommended starting point:** D.0 — cheap (a couple hours), and the honest
+go/no-go gate for the rest: if disabling Presidio's NLP engine doesn't actually
+match current regex-only speed, D.1 needs a different design (e.g. keep the current
+hand-rolled detectors and use Presidio only for D.2's `PERSON`/`LOCATION` toggle,
+rather than replacing everything).
+
+---
+
 ## Notes
 
 - None of the above is scheduled or committed — this is a menu, not a roadmap.

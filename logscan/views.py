@@ -8,7 +8,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.utils import apply_sort, get_current_project
-from logscan.models import LogPIIFinding, LogScanJob, LogSource, SOURCE_TYPE_CHOICES, TRIGGER_MODE_CHOICES
+from logscan.models import LogPatternCluster, LogPIIFinding, LogScanJob, LogSource, SOURCE_TYPE_CHOICES, TRIGGER_MODE_CHOICES
+from logscan.pattern_analysis import analyze_patterns
 from tickets.pii_detection import PII_TYPES
 
 SOURCES_SORT_FIELDS = {
@@ -199,3 +200,36 @@ def findings_report(request):
         "source_filter": source_filter,
     })
     return render(request, "logscan/findings.html", context)
+
+
+@login_required
+def find_patterns(request, pk):
+    """Triggers logscan.pattern_analysis.analyze_patterns synchronously — bounded
+    by design (a recent slice of the file, not the whole thing), so unlike the
+    PII scan trigger this doesn't need a detached subprocess or a status-polling
+    page; it's done well within one request."""
+    project = get_current_project(request)
+    source = get_object_or_404(LogSource, id=pk, project=project)
+    if request.method != "POST":
+        return redirect("logscan:sources")
+
+    if source.source_type == "directory":
+        messages.error(request, "Pattern analysis isn't available for directory sources yet — pick a single-file (path or upload) source.")
+        return redirect("logscan:sources")
+
+    result = analyze_patterns(source)
+    if result.ran:
+        messages.success(request, result.message)
+    else:
+        messages.error(request, result.message)
+    return redirect("logscan:patterns", pk=source.id)
+
+
+@login_required
+def patterns(request, pk):
+    project = get_current_project(request)
+    source = get_object_or_404(LogSource, id=pk, project=project)
+    clusters = LogPatternCluster.objects.filter(source=source).order_by("-recurring_count")
+    return render(request, "logscan/patterns.html", {
+        "active_nav": "log-sources", "project": project, "source": source, "clusters": clusters,
+    })

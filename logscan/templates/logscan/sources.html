@@ -115,6 +115,15 @@
               {% csrf_token %}
               <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Scan Now</button>
             </form>
+            {% if s.source_type != 'directory' %}
+            <form method="post" action="{% url 'logscan:find_patterns' s.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Find Patterns</button>
+            </form>
+            {% if s.pattern_clusters.exists %}
+            <a href="{% url 'logscan:patterns' s.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">View Patterns</a>
+            {% endif %}
+            {% endif %}
             <form method="post" action="{% url 'logscan:delete_source' s.id %}" onsubmit="return confirm('Delete log source \'{{ s.name }}\' and its entire scan/findings history?');">
               {% csrf_token %}
               <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px;color:var(--red);border-color:var(--red-bg)">Delete</button>
@@ -138,6 +147,7 @@
     <p><strong>Continuous (tailing)</strong> — a separate, always-running process (<code>manage.py tail_log_sources</code>), deployed as its own Windows Service, watches active continuous sources and scans new bytes as they're appended — real-time, not a periodic batch.</p>
     <p>Every mode resumes from <strong>Scanned so far</strong> rather than re-reading the whole file each time — a growing log only ever has its new bytes scanned.</p>
     <p><strong>Directory / NAS share</strong> sources scan every file matching <strong>File pattern</strong> under a folder (a mapped NAS share works the same as a local folder) — each file tracks its own resume point independently, so a scan only reads whatever's new in whichever files actually changed, plus any brand-new files that have appeared since the last pass. Files that don't match the pattern are never opened at all.</p>
+    <p><strong>Find Patterns</strong> is different from Scan Now — instead of scanning for sensitive data, it clusters the last ~5MB of the file by shared wording (ignoring timestamps, IPs, and IDs) to surface recurring message types, the same idea as Problem Clusters for tickets. It runs in the request (no background job) and only looks at a recent slice, not the whole file — path/upload sources only for now.</p>
   </div>
 </details>
 
