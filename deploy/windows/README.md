@@ -173,6 +173,45 @@ Invoke-WebRequest https://your-hostname/static/css/app.css -UseBasicParsing
 
 Then open `https://your-hostname/` in a browser and log in.
 
+## 6. Log scanning: scheduled scans and continuous tailing
+
+Log sources configured in the app (Log Sources page) with trigger mode
+**On-demand** need nothing further — "Scan Now" launches a scan directly.
+**Scheduled** and **Continuous** sources need one more piece registered
+outside the app, same "this app doesn't schedule itself, an external
+mechanism does" pattern as everything else in this file:
+
+**Scheduled** — register `run_scheduled_scans` as a Windows Scheduled Task
+(no NSSM needed here; a periodic task, not a standing service, is the right
+tool — see the Task Scheduler vs. NSSM trade-off note earlier in this file
+under the "Quick paths" section):
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "C:\apps\correlate-ai\venv\Scripts\python.exe" `
+  -Argument "manage.py run_scheduled_scans" -WorkingDirectory "C:\apps\correlate-ai"
+$trigger = New-ScheduledTaskTrigger -Daily -At 2am
+Register-ScheduledTask -TaskName "CorrelateAI-ScheduledLogScans" -Action $action -Trigger $trigger -User "SYSTEM" -RunLevel Highest
+```
+
+Adjust `-Daily -At 2am` to whatever cadence fits your log volume — this only
+scans the bytes added since each source's last scan, not the whole file every
+time, so more frequent runs stay cheap.
+
+**Continuous (tailing)** — needs `tail_log_sources` running as its own
+always-on Windows Service, exactly like `install-service.ps1` registers
+`serve.py`, just pointed at a different entrypoint:
+
+```powershell
+cd deploy\windows
+.\install-log-watcher-service.ps1
+```
+
+This registers a separate `CorrelateAI-LogWatcher` service (auto-start,
+auto-restart-on-crash, same NSSM pattern as the main app service) that loops
+indefinitely, scanning new bytes appended to any active continuous source as
+they're written. It runs alongside the main `CorrelateAI` service, not
+instead of it — stopping/updating one doesn't affect the other.
+
 ## Updating the app later
 
 ```powershell

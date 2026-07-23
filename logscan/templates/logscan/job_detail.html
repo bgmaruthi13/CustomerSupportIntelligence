@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Scan Job{% endblock %}
+{% block breadcrumb %}Scan Jobs › Job {{ job.id }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <a href="{% url 'logscan:jobs_list' %}" style="font-size:12.5px;color:var(--text-secondary);text-decoration:none">← Back to Scan Jobs</a>
+    <div class="page-title" style="margin-top:6px">Scanning "{{ job.source.name }}"</div>
+    <div class="page-subtitle">{{ job.source.display_location }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body pad" style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Status</span>
+      <span id="statusBadge"><span class="badge badge-grey">{{ job.get_status_display }}</span></span>
+    </div>
+
+    <div id="progressWrap" style="display:none">
+      <div class="conf-bar-wrap"><div class="conf-bar" style="width:100%"><div class="conf-bar-fill" id="progressBar" style="width:0%;background:var(--primary)"></div></div><span id="progressPct">—</span></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Bytes scanned</span><span id="bytesScanned" style="font-weight:700">{{ job.bytes_scanned|filesizeformat }}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Lines scanned</span><span id="linesScanned" style="font-weight:700">{{ job.lines_scanned }}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">Findings</span><span id="findingsCount" style="font-weight:700;color:var(--amber)">{{ job.findings_count }}</span></div>
+
+    <div id="errorBox" style="display:none;padding:12px;background:var(--red-bg);border-radius:var(--radius-md);color:var(--red);font-size:12.5px"></div>
+
+    {% if job.findings_count %}
+    <a href="{% url 'logscan:findings_report' %}?source={{ job.source.id }}" class="btn btn-primary" style="text-align:center">View Findings →</a>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const jobStatusUrl = "{% url 'logscan:job_status_json' job.id %}";
+  const statusBadge = document.getElementById('statusBadge');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const progressPct = document.getElementById('progressPct');
+  const bytesScanned = document.getElementById('bytesScanned');
+  const linesScanned = document.getElementById('linesScanned');
+  const findingsCount = document.getElementById('findingsCount');
+  const errorBox = document.getElementById('errorBox');
+
+  function badgeFor(status) {
+    const map = { completed: 'badge-green', running: 'badge-blue', failed: 'badge-red', pending: 'badge-grey' };
+    const labelMap = { completed: 'Completed', running: 'Running', failed: 'Failed', pending: 'Pending' };
+    return `<span class="badge ${map[status] || 'badge-grey'}">${labelMap[status] || status}</span>`;
+  }
+
+  function formatBytes(n) {
+    if (n === null || n === undefined) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return `${n.toFixed(1)} ${units[i]}`;
+  }
+
+  let pollTimer = null;
+  function poll() {
+    fetch(jobStatusUrl).then(r => r.json()).then(data => {
+      statusBadge.innerHTML = badgeFor(data.status);
+      bytesScanned.textContent = formatBytes(data.bytes_scanned);
+      linesScanned.textContent = data.lines_scanned;
+      findingsCount.textContent = data.findings_count;
+
+      if (data.progress_pct !== null && data.progress_pct !== undefined) {
+        progressWrap.style.display = '';
+        progressBar.style.width = data.progress_pct + '%';
+        progressPct.textContent = data.progress_pct + '%';
+      }
+
+      if (data.error_message) {
+        errorBox.style.display = '';
+        errorBox.textContent = data.error_message;
+      }
+
+      if (data.status === 'completed' || data.status === 'failed') {
+        clearInterval(pollTimer);
+        if (data.findings_count > 0 && !document.getElementById('viewFindingsFallback')) {
+          location.reload();
+        }
+      }
+    }).catch(() => {});
+  }
+
+  poll();
+  pollTimer = setInterval(poll, 2000);
+</script>
+{% endblock %}

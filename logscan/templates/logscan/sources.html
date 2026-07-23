@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Log Sources{% endblock %}
+{% block breadcrumb %}Log Sources{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Log Sources — {{ project.name }}</div>
+    <div class="page-subtitle">Configure log files to scan for sensitive data — never loaded fully into memory, so a 100GB+ file is scanned the same way a 100KB one is, just slower. See Help below for how each trigger mode actually runs.</div>
+  </div>
+</div>
+
+{% if not project %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No project selected.</div>
+{% else %}
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Add Log Source</div></div>
+  <div class="card-body pad">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-field">
+        <label>Name</label>
+        <input type="text" name="name" placeholder="e.g. Prod API gateway logs" required style="width:100%">
+      </div>
+
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div class="form-field" style="flex:1;min-width:200px">
+          <label>Source type</label>
+          <select name="source_type" id="sourceTypeSelect" style="width:100%">
+            {% for value, label in source_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-field" style="flex:1;min-width:200px">
+          <label>Trigger mode <span class="info-dot" data-tip="On-demand: you click Scan Now. Scheduled: an external Task Scheduler/cron job invokes run_scheduled_scans. Continuous: a separate always-on service (tail_log_sources) watches this source and scans new bytes as they're written. See Help below." tabindex="0">i</span></label>
+          <select name="trigger_mode" style="width:100%">
+            {% for value, label in trigger_mode_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-field" id="pathField">
+        <label id="pathFieldLabel">Filesystem / network path</label>
+        <input type="text" name="path" id="pathInput" placeholder="e.g. D:\logs\api-gateway.log or \\fileserver\logs\app.log" style="width:100%">
+      </div>
+      <div class="form-field" id="uploadField" style="display:none">
+        <label>File</label>
+        <input type="file" name="uploaded_file">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Up to {{ max_upload_mb }}MB over this browser upload. For files near the true 100GB extreme, use a filesystem/network path instead — a single HTTP upload that large is fragile in practice (proxy timeouts, hours-long transfers).</div>
+      </div>
+      <div id="directoryOptionsField" style="display:none">
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="form-field" style="flex:1;min-width:160px">
+            <label>File pattern</label>
+            <input type="text" name="file_pattern" value="*.log" style="width:100%">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Only files matching this glob are scanned — everything else in the folder (or a NAS share holding more than logs) is left alone.</div>
+          </div>
+          <div class="form-field" style="flex:1;min-width:160px">
+            <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><input type="checkbox" name="recursive" checked> Include subfolders</label>
+            <div style="font-size:11px;color:var(--text-muted)">Unchecked scans only files directly in this folder, not nested folders.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" name="scan_phone_numbers"> Include phone number detection</label>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Off by default — phone parsing is the most expensive check per line and most log lines contain digits (timestamps, ports, IDs) that would trigger it constantly. Email/card/IBAN detection always run regardless of this setting.</div>
+      </div>
+
+      <div class="form-field">
+        <label>Alert emails <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+        <input type="text" name="alert_emails" placeholder="security@yourcompany.com, ops@yourcompany.com" style="width:100%">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Comma-separated. One digest email per scan that finds anything — never one email per finding.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="margin-top:6px">Add Log Source</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Configured Sources</div></div>
+  <div class="card-body">
+    {% if sources %}
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "name" "Name" %}</th>
+        <th>Location</th>
+        <th>{% sort_header "trigger" "Trigger" %}</th>
+        <th>Scanned so far</th>
+        <th>{% sort_header "created" "Added" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for s in sources %}
+        <tr>
+          <td>
+            <div class="task-name">{{ s.name }}</div>
+            {% if not s.is_active %}<span class="badge badge-grey">Inactive</span>{% endif %}
+          </td>
+          <td><code style="font-size:11.5px">{{ s.display_location|truncatechars:50 }}</code>{% if s.source_type == 'directory' %} <span class="badge badge-grey">{{ s.file_pattern }}{% if s.recursive %}, recursive{% endif %}</span>{% endif %}</td>
+          <td><span class="badge badge-blue">{{ s.get_trigger_mode_display }}</span></td>
+          <td style="color:var(--text-muted)">
+            {% if s.source_type == 'directory' %}{{ s.files.count }} file{{ s.files.count|pluralize }} tracked
+            {% else %}{{ s.last_scanned_offset|filesizeformat }}{% endif %}
+          </td>
+          <td style="color:var(--text-muted)">{{ s.created_at|date:"d M Y" }}</td>
+          <td style="display:flex;gap:6px">
+            <form method="post" action="{% url 'logscan:scan_now' s.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Scan Now</button>
+            </form>
+            <form method="post" action="{% url 'logscan:delete_source' s.id %}" onsubmit="return confirm('Delete log source \'{{ s.name }}\' and its entire scan/findings history?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline" style="padding:4px 12px;font-size:12px;color:var(--red);border-color:var(--red-bg)">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No log sources configured yet — add one above.</div>
+    {% endif %}
+  </div>
+</div>
+
+<details class="card help-block">
+  <summary>Help — Trigger modes, and how each one actually runs</summary>
+  <div class="help-body">
+    <p><strong>On-demand</strong> — click Scan Now. This launches <code>manage.py run_log_scan</code> as a detached background process; the page redirects to a status screen that polls progress, since a large file won't finish before the request would time out.</p>
+    <p><strong>Scheduled</strong> — nothing inside this app schedules it. An external Windows Task Scheduler job (or cron on Linux) is expected to run <code>manage.py run_scheduled_scans</code> periodically, which scans every active scheduled source. See <code>deploy/windows/README.md</code> for registering it.</p>
+    <p><strong>Continuous (tailing)</strong> — a separate, always-running process (<code>manage.py tail_log_sources</code>), deployed as its own Windows Service, watches active continuous sources and scans new bytes as they're appended — real-time, not a periodic batch.</p>
+    <p>Every mode resumes from <strong>Scanned so far</strong> rather than re-reading the whole file each time — a growing log only ever has its new bytes scanned.</p>
+    <p><strong>Directory / NAS share</strong> sources scan every file matching <strong>File pattern</strong> under a folder (a mapped NAS share works the same as a local folder) — each file tracks its own resume point independently, so a scan only reads whatever's new in whichever files actually changed, plus any brand-new files that have appeared since the last pass. Files that don't match the pattern are never opened at all.</p>
+  </div>
+</details>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const sourceTypeSelect = document.getElementById('sourceTypeSelect');
+  const pathField = document.getElementById('pathField');
+  const pathFieldLabel = document.getElementById('pathFieldLabel');
+  const pathInput = document.getElementById('pathInput');
+  const uploadField = document.getElementById('uploadField');
+  const directoryOptionsField = document.getElementById('directoryOptionsField');
+  function syncSourceType() {
+    const type = sourceTypeSelect.value;
+    pathField.style.display = type === 'upload' ? 'none' : '';
+    uploadField.style.display = type === 'upload' ? '' : 'none';
+    directoryOptionsField.style.display = type === 'directory' ? '' : 'none';
+    if (type === 'directory') {
+      pathFieldLabel.textContent = 'Folder path';
+      pathInput.placeholder = 'e.g. \\\\fileserver\\logs\\ or D:\\logs\\';
+    } else {
+      pathFieldLabel.textContent = 'Filesystem / network path';
+      pathInput.placeholder = 'e.g. D:\\logs\\api-gateway.log or \\\\fileserver\\logs\\app.log';
+    }
+  }
+  if (sourceTypeSelect) {
+    sourceTypeSelect.addEventListener('change', syncSourceType);
+    syncSourceType();
+  }
+</script>
+{% endblock %}

@@ -75,6 +75,17 @@
     <span>Possible Duplicates</span>
   </a>
 
+  <div class="sidebar-section-label">Log Monitoring</div>
+  <a class="nav-item {% if active_nav == 'log-sources' %}active{% endif %}" href="{% url 'logscan:sources' %}">
+    <span>Log Sources</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'log-jobs' %}active{% endif %}" href="{% url 'logscan:jobs_list' %}">
+    <span>Scan Jobs</span>
+  </a>
+  <a class="nav-item {% if active_nav == 'log-findings' %}active{% endif %}" href="{% url 'logscan:findings_report' %}">
+    <span>Log PII Alerts</span>
+  </a>
+
   <div class="sidebar-section-label">Reference</div>
   <a class="nav-item muted {% if active_nav == 'how-it-works' %}active{% endif %}" href="{% url 'how_it_works' %}">
     <span>Platform Guide</span>

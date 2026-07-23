@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Log PII Alerts{% endblock %}
+{% block breadcrumb %}Log PII Alerts{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Log PII Alerts — {{ project.name }}</div>
+    <div class="page-subtitle">Pattern-matched (regex/checksum) sensitive-data findings across every scanned log source — masked previews only, never the raw value.</div>
+  </div>
+</div>
+
+{% if not total_count %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No sensitive-data patterns detected in any scanned log source so far.
+</div>
+{% else %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header"><div class="card-title">Filter</div></div>
+  <div class="card-body pad">
+    <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-field" style="margin-bottom:0">
+        <label>Type</label>
+        <select name="type">
+          <option value="">All types</option>
+          {% for value, label in pii_types %}
+          <option value="{{ value }}" {% if value == type_filter %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label>Confidence</label>
+        <select name="confidence">
+          <option value="">All confidence levels</option>
+          <option value="high" {% if confidence_filter == "high" %}selected{% endif %}>High</option>
+          <option value="medium" {% if confidence_filter == "medium" %}selected{% endif %}>Medium</option>
+          <option value="low" {% if confidence_filter == "low" %}selected{% endif %}>Low</option>
+        </select>
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label>Source</label>
+        <select name="source">
+          <option value="">All sources</option>
+          {% for s in sources %}
+          <option value="{{ s.id }}" {% if source_filter == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Apply Filter</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Findings</div>
+    <div class="card-subtitle">{{ total_count }} total</div>
+  </div>
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>{% sort_header "type" "Type" %}</th>
+        <th>{% sort_header "confidence" "Confidence" %}</th>
+        <th>Masked Preview</th>
+        <th>Source</th>
+        <th>File</th>
+        <th>{% sort_header "line" "Line" %}</th>
+        <th>{% sort_header "detected" "Detected" %}</th>
+      </tr></thead>
+      <tbody>
+        {% for f in page %}
+        <tr>
+          <td><span class="badge badge-violet">{{ f.get_pii_type_display }}</span></td>
+          <td>
+            {% if f.confidence == 'high' %}<span class="badge badge-teal">High</span>
+            {% elif f.confidence == 'medium' %}<span class="badge badge-amber">Medium</span>
+            {% else %}<span class="badge badge-grey">Low</span>{% endif %}
+          </td>
+          <td style="font-family:monospace">{{ f.masked_preview }}</td>
+          <td>{{ f.source.name }}</td>
+          <td><code style="font-size:11.5px">{{ f.file_path|default:"—"|truncatechars:40 }}</code></td>
+          <td style="color:var(--text-muted)">line {{ f.line_number }}</td>
+          <td style="color:var(--text-muted)">{{ f.detected_at|date:"d M Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page.paginator.num_pages > 1 %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-top:1px solid var(--border)">
+    <span style="font-size:12px;color:var(--text-muted)">Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} findings total</span>
+    <div style="display:flex;gap:8px">
+      {% if page.has_previous %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?type={{ type_filter }}&confidence={{ confidence_filter }}&source={{ source_filter }}&page={{ page.previous_page_number }}">← Prev</a>{% endif %}
+      {% if page.has_next %}<a class="btn btn-outline" style="padding:5px 12px;font-size:12px" href="?type={{ type_filter }}&confidence={{ confidence_filter }}&source={{ source_filter }}&page={{ page.next_page_number }}">Next →</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How is sensitive data detected in logs?</summary>
+  <div class="help-body">
+    <p>Detection reuses the exact same pattern-matching + checksum validation as ticket upload scanning (Luhn for cards, mod-97 for IBAN) — no LLM, no external API call. The file is read in fixed-size chunks and scanned line by line, never loaded whole into memory, so a 100GB+ log scans the same way a small one does, just slower.</p>
+    <p><strong>Phone number detection is off by default per source</strong> — it's the single most expensive check (real parsing, not just regex) and most log lines contain digits that would trigger it constantly. Turn it on per source if you need that coverage.</p>
+    <p>Only a masked preview is ever stored or shown — never the raw matched value.</p>
+  </div>
+</details>
+
+{% endblock %}

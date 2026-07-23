@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load sort_tags %}
+{% block title %}Scan Jobs{% endblock %}
+{% block breadcrumb %}Scan Jobs{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Scan Jobs — {{ project.name }}</div>
+    <div class="page-subtitle">History of every log scan — on-demand, scheduled, and continuous — across all sources in this project.</div>
+  </div>
+</div>
+
+{% if not project %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No project selected.</div>
+{% elif jobs %}
+<div class="card">
+  <div class="card-body">
+    <table class="task-table">
+      <thead><tr>
+        <th>Source</th>
+        <th>{% sort_header "status" "Status" %}</th>
+        <th>Triggered by</th>
+        <th>Progress</th>
+        <th>{% sort_header "findings" "Findings" %}</th>
+        <th>{% sort_header "created" "Started" %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td class="task-name">{{ j.source.name }}</td>
+          <td>
+            {% if j.status == 'completed' %}<span class="badge badge-green">Completed</span>
+            {% elif j.status == 'running' %}<span class="badge badge-blue">Running</span>
+            {% elif j.status == 'failed' %}<span class="badge badge-red">Failed</span>
+            {% else %}<span class="badge badge-grey">Pending</span>{% endif %}
+          </td>
+          <td><span class="badge badge-grey">{{ j.get_triggered_by_display }}</span></td>
+          <td>{{ j.lines_scanned }} lines · {{ j.bytes_scanned|filesizeformat }}</td>
+          <td>{% if j.findings_count %}<span class="badge badge-amber">{{ j.findings_count }}</span>{% else %}—{% endif %}</td>
+          <td style="color:var(--text-muted)">{{ j.created_at|date:"d M Y H:i" }}</td>
+          <td><a href="{% url 'logscan:job_detail' j.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">No scans have run yet — start one from <a href="{% url 'logscan:sources' %}">Log Sources</a>.</div>
+{% endif %}
+
+{% endblock %}

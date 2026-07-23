@@ -75,11 +75,20 @@ def iban_valid(candidate):
         return False
 
 
-def detect_pii(text):
+def detect_pii(text, include_phone=True):
     """Scans one string value for sensitive-data patterns. Returns a list of
     {pii_type, confidence, masked_preview} dicts — the raw matched value is never
     returned beyond what the masked preview intentionally reveals, since a findings
-    report holding full card numbers/IBANs would itself be a new data-handling risk."""
+    report holding full card numbers/IBANs would itself be a new data-handling risk.
+
+    include_phone defaults True (unchanged behavior for every existing caller —
+    ticket scanning always wants it). logscan.scanner is the one caller that
+    passes False: phonenumbers.PhoneNumberMatcher does real parsing and is by
+    far the most expensive check here, and most log lines contain digits
+    (timestamps, ports, IDs) that would trigger it on nearly every line at
+    100GB scale. Email/card/IBAN stay on unconditionally regardless of this
+    flag — they're cheap regex passes and the higher-value signal for a
+    log-leak scenario anyway."""
     if not text or not isinstance(text, str):
         return []
     text = text.strip()
@@ -102,7 +111,7 @@ def detect_pii(text):
             card_spans.add(m.span())
             findings.append({"pii_type": "card", "confidence": "high", "masked_preview": _mask(digits, 0, 4)})
 
-    if any(ch.isdigit() for ch in text):
+    if include_phone and any(ch.isdigit() for ch in text):
         try:
             for match in phonenumbers.PhoneNumberMatcher(text, "US"):
                 findings.append({"pii_type": "phone", "confidence": "medium", "masked_preview": _mask(match.raw_string, 2, 2)})

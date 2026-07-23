@@ -10,6 +10,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('tickets/', include(('tickets.urls', 'tickets'), namespace='tickets')),
     path('clustering/', include(('clustering.urls', 'clustering'), namespace='clustering')),
+    path('logscan/', include(('logscan.urls', 'logscan'), namespace='logscan')),
     path('', include('core.urls')),
 ]
 

@@ -35,6 +35,13 @@ def upload(request):
         if not file.name.lower().endswith((".csv", ".xlsx", ".xls")):
             messages.error(request, "Unsupported file type — please upload a .csv or .xlsx file.")
             return redirect("tickets:upload")
+        # Ticket exports stay capped at 25MB via this explicit check, not the
+        # global DATA_UPLOAD_MAX_MEMORY_SIZE setting — that setting now has to
+        # accommodate logscan's much larger log-file uploads too (see
+        # correlate.settings), so it can no longer double as this guard.
+        if file.size > 25 * 1024 * 1024:
+            messages.error(request, "File too large — ticket exports are capped at 25MB. For larger files, contact your administrator.")
+            return redirect("tickets:upload")
 
         next_version = (UploadBatch.objects.filter(project=project).aggregate(Max("version"))["version__max"] or 0) + 1
         batch = UploadBatch.objects.create(project=project, file=file, original_filename=file.name, version=next_version)

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'core',
     'tickets',
     'clustering',
+    'logscan',
 ]
 
 MIDDLEWARE = [
@@ -160,9 +161,37 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Max upload size for ticket data files (25 MB)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+# DATA_UPLOAD_MAX_MEMORY_SIZE is a hard request-size cap (RequestDataTooBig
+# above it) — it's global, not per-view, so it has to be sized for the
+# largest legitimate upload anywhere in the app. That's now logscan's log
+# file uploads (see LogSource, source_type="upload"), not ticket exports —
+# ticket uploads keep their own 25MB guard as an explicit check in
+# tickets.views.upload instead of relying on this global setting.
+# FILE_UPLOAD_MAX_MEMORY_SIZE stays small on purpose: it's the memory/disk
+# streaming crossover for Django's upload handler chain, not a size limit —
+# a low value means large files start streaming to a temp file sooner rather
+# than buffering in memory, which is what a multi-GB upload wants regardless.
+LOGSCAN_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get("LOGSCAN_UPLOAD_MAX_MB", "2048")) * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = LOGSCAN_UPLOAD_MAX_MEMORY_SIZE
 FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
+
+# Email — used only by logscan's alert digests (logscan.alerts.send_scan_digest),
+# sent when a scan finds anything on a Log Source with alert_emails configured.
+# Nothing else in this app sends email. Falls back to Django's console backend
+# (prints to the server log) when DJANGO_EMAIL_HOST is unset, so the digest
+# content can be exercised/tested without real SMTP configured — alerts.py
+# already treats send failures as non-fatal (logged, not raised) regardless.
+if os.environ.get("DJANGO_EMAIL_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["DJANGO_EMAIL_HOST"]
+    EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", default=True)
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DJANGO_ALERT_FROM_EMAIL", "correlate-alerts@localhost")
 
 
 # Security hardening — applied whenever DEBUG=False. Cookie/HSTS settings assume the
