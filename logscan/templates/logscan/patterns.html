@@ -31,6 +31,7 @@
         <th>Recurring</th>
         <th>Confidence</th>
         <th>Example (redacted)</th>
+        <th></th>
       </tr></thead>
       <tbody>
         {% for c in clusters %}
@@ -42,7 +43,25 @@
           <td>{{ c.recurring_count }}</td>
           <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:var(--violet)"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
           <td><code style="font-size:11.5px">{{ c.example_line|truncatechars:100 }}</code></td>
+          <td style="white-space:nowrap">
+            {% if not c.ai_narrative %}
+            <form method="post" action="{% url 'logscan:generate_pattern_narrative' c.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-violet btn-ai-generate" style="padding:4px 10px;font-size:12px">✨ Explain</button>
+            </form>
+            {% endif %}
+          </td>
         </tr>
+        {% if c.ai_narrative %}
+        <tr>
+          <td colspan="5" style="padding-top:0">
+            <div class="ai-generated-panel" style="margin-bottom:4px">
+              <div class="ai-generated-label">✨ Generated via Copilot Bridge</div>
+              <div style="font-size:12.5px;color:var(--text-primary)">{{ c.ai_narrative }}</div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>

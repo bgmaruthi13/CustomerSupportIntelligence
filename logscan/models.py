@@ -228,6 +228,14 @@ class LogPatternCluster(models.Model):
     first_line_at = models.DateTimeField(null=True, blank=True)
     last_line_at = models.DateTimeField(null=True, blank=True)
 
+    ai_narrative = models.CharField(
+        max_length=500, blank=True,
+        help_text="Plain-English 'what's likely happening' sentence generated via the Copilot HTTP "
+                   "Bridge (BACKLOG A.6) — same idea as Cluster.ai_summary applied to a log pattern "
+                   "instead of a ticket cluster. Built only from keywords/example_line, both already "
+                   "redacted before saving, so nothing extra to redact here.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

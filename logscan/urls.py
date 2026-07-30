@@ -11,6 +11,7 @@ urlpatterns = [
     path("sources/<int:pk>/find-patterns/", views.find_patterns, name="find_patterns"),
     path("sources/<int:pk>/patterns/", views.patterns, name="patterns"),
     path("sources/<int:pk>/patterns/download/", views.patterns_download, name="patterns_download"),
+    path("patterns/<int:pk>/narrative/", views.generate_pattern_narrative, name="generate_pattern_narrative"),
     path("jobs/", views.jobs_list, name="jobs_list"),
     path("jobs/<int:pk>/", views.job_detail, name="job_detail"),
     path("jobs/<int:pk>/status/", views.job_status_json, name="job_status_json"),

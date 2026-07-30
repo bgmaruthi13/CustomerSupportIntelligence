@@ -273,6 +273,40 @@ def patterns(request, pk):
     })
 
 
+def _build_pattern_narrative_prompt(cluster):
+    """BACKLOG A.6 — same idea as clustering's _build_summary_prompt, applied to
+    a log pattern instead of a ticket cluster: turn keywords + one redacted
+    example line into a plain-English 'what's likely happening' sentence.
+    example_line is already redact_pii()'d before it was ever saved (see the
+    model's own docstring) - nothing extra to sanitize here."""
+    return "\n".join([
+        "Here is a recurring pattern found in a log file (source: "
+        f"'{cluster.source.name}'). In ONE short, plain-English sentence, "
+        "explain what's likely happening — not a list of keywords, the kind of "
+        "sentence an on-call engineer would say out loud.",
+        "",
+        f"Pattern keywords: {cluster.keywords}",
+        f"Recurring count: {cluster.recurring_count} of {cluster.lines_analyzed} recent lines analyzed",
+        f"Example line (redacted): {cluster.example_line}",
+    ])
+
+
+@login_required
+def generate_pattern_narrative(request, pk):
+    from core.llm_bridge import LLMBridgeUnavailable, ask
+    project = get_current_project(request)
+    cluster = get_object_or_404(LogPatternCluster, id=pk, source__project=project)
+    if request.method != "POST":
+        return redirect("logscan:patterns", pk=cluster.source_id)
+    try:
+        cluster.ai_narrative = ask(_build_pattern_narrative_prompt(cluster))[:500]
+        cluster.save(update_fields=["ai_narrative"])
+        messages.success(request, "Narrative generated via the Copilot HTTP Bridge.")
+    except LLMBridgeUnavailable as exc:
+        messages.error(request, f"Couldn't generate a narrative: {exc}")
+    return redirect("logscan:patterns", pk=cluster.source_id)
+
+
 @login_required
 def patterns_download(request, pk):
     """CSV of one source's Find Patterns results. example_line is already
