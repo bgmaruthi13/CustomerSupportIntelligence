@@ -27,6 +27,15 @@ class LLMBridgeUnavailable(Exception):
 
 
 def _bridge_url():
+    """Resolution order: SiteSettings.llm_bridge_url (live-editable from the
+    Clustering Settings page, no restart needed) → LLM_BRIDGE_URL env var →
+    DEFAULT_BRIDGE_URL. The DB setting is checked first so the in-app config
+    page is authoritative once someone's actually used it, while the env var
+    keeps working unchanged for anyone who set it up before this existed."""
+    from core.models import SiteSettings
+    configured = SiteSettings.load().llm_bridge_url.strip()
+    if configured:
+        return configured.rstrip("/")
     return os.environ.get("LLM_BRIDGE_URL", DEFAULT_BRIDGE_URL).rstrip("/")
 
 

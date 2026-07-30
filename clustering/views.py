@@ -1458,6 +1458,19 @@ def clustering_settings(request):
             else:
                 messages.error(request, f"Saved, but this path doesn't resolve to a real folder: {path_or_error}")
             return redirect(f"{reverse('clustering:settings')}?tab={tab}")
+        if action == "save_llm_bridge_url":
+            from core.models import SiteSettings
+            new_url = request.POST.get("llm_bridge_url", "").strip()
+            site_settings = SiteSettings.load()
+            site_settings.llm_bridge_url = new_url
+            site_settings.save(update_fields=["llm_bridge_url"])
+            messages.success(request, "Saved. Use \"Test Connection\" below to confirm the bridge is reachable at this address — saving alone doesn't check.")
+            return redirect(f"{reverse('clustering:settings')}?tab={tab}")
+        if action == "test_llm_bridge_url":
+            from core.llm_bridge import bridge_status
+            available, status_message = bridge_status()
+            messages.success(request, status_message) if available else messages.error(request, status_message)
+            return redirect(f"{reverse('clustering:settings')}?tab={tab}")
         if action == "save_confidence":
             try:
                 project.confidence_weight_size = max(0.0, float(request.POST.get("confidence_weight_size", 40)))
@@ -1523,6 +1536,7 @@ def clustering_settings(request):
     ml_settings = submitted_settings if submitted_engine == "traditional_ml" else get_clustering_settings(project, "traditional_ml")
     genai_settings = submitted_settings if submitted_engine == "generative_ai" else get_clustering_settings(project, "generative_ai")
 
+    from core.llm_bridge import DEFAULT_BRIDGE_URL
     from core.models import SiteSettings
     embedding_available, embedding_path_or_error = embedding_model_status()
 
@@ -1540,5 +1554,7 @@ def clustering_settings(request):
         "embedding_model_path": SiteSettings.load().embedding_model_path,
         "embedding_available": embedding_available,
         "embedding_status_message": embedding_path_or_error,
+        "llm_bridge_url": SiteSettings.load().llm_bridge_url,
+        "llm_bridge_url_placeholder": DEFAULT_BRIDGE_URL,
     })
     return render(request, "clustering/settings.html", context)

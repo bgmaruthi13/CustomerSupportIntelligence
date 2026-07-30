@@ -43,6 +43,33 @@
 <div class="card" style="margin-bottom:20px">
   <div class="card-header">
     <div>
+      <div class="card-title">✨ Copilot HTTP Bridge</div>
+      <div class="card-subtitle">Applies app-wide — powers every "Generate with Copilot Bridge" button across the app (BACKLOG Theme A)</div>
+    </div>
+  </div>
+  <div class="card-body pad">
+    <form method="post" style="margin-bottom:10px">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_llm_bridge_url">
+      <div class="form-field">
+        <label>Bridge URL</label>
+        <input type="text" name="llm_bridge_url" value="{{ llm_bridge_url }}" placeholder="{{ llm_bridge_url_placeholder }}" style="width:100%;font-family:monospace">
+        <div class="help-text">Base URL of the local VS Code extension exposing Copilot's chat model over HTTP — e.g. <code>{{ llm_bridge_url_placeholder }}</code> if it's running on this same machine, or a LAN IP (<code>http://10.x.x.x:3939</code>) if it's running elsewhere. Left blank, falls back to the <code>LLM_BRIDGE_URL</code> environment variable, then to <code>{{ llm_bridge_url_placeholder }}</code>. Takes effect immediately — no restart needed.</div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:10px">Save Bridge URL</button>
+    </form>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="test_llm_bridge_url">
+      <button type="submit" class="btn btn-outline">Test Connection</button>
+      <span style="font-size:11px;color:var(--text-muted);margin-left:8px">Makes one real round-trip to the bridge — not run automatically on page load, so this page never fires an LLM call just by opening it.</span>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div>
       <div class="card-title">Confidence Scoring</div>
       <div class="card-subtitle">Applies to both engines — a cluster's Confidence % is meant to mean the same thing regardless of which one produced it</div>
     </div>

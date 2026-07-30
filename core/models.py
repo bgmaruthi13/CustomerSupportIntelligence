@@ -15,6 +15,13 @@ class SiteSettings(models.Model):
         max_length=300, default="embedding_model", blank=True,
         help_text="Local folder containing a sentence-transformers model, used by Generative AI, Smart Search, Find Similar, Smart Assign, and Possible Duplicates. Either a path relative to the app's root folder (e.g. 'embedding_model') or an absolute local path — never a Hugging Face Hub model id; this app never reaches out to Hugging Face. If the folder doesn't exist, those features show a clear error instead of failing silently. Also editable from the Clustering Settings page.",
     )
+    llm_bridge_url = models.CharField(
+        max_length=300, blank=True,
+        help_text="Base URL of the Copilot HTTP Bridge (BACKLOG Theme A), e.g. 'http://127.0.0.1:3939' "
+                   "or a LAN IP if it's running on a different machine. Blank falls back to the "
+                   "LLM_BRIDGE_URL env var, then to http://127.0.0.1:3939. Also editable from the "
+                   "Clustering Settings page — takes effect immediately, no restart needed.",
+    )
 
     class Meta:
         verbose_name = "Site Settings"
