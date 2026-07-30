@@ -212,6 +212,25 @@ def _build_copilot_prompt(cluster, members):
     return "\n".join(lines)
 
 
+def _project_context_lines(cluster):
+    """Project-level framing (BACKLOG A.3) — every prompt below was cluster-only
+    before this: no sense of which project it's in, or what else is going on in
+    that same project. Top 4 OTHER active clusters by recurring_count, so the
+    model can say "this looks related to X" or "unlike the rest of this project's
+    clusters" instead of reasoning about one cluster in a vacuum. Capped at 4 to
+    keep the prompt from growing unbounded on a project with hundreds of clusters."""
+    project = cluster.project
+    other_clusters = (
+        Cluster.objects.filter(project=project, is_noise=False, parent__isnull=True)
+        .exclude(id=cluster.id).order_by("-recurring_count")[:4]
+    )
+    lines = [f"Project: {project.name}" + (f" ({project.domain})" if project.domain else "")]
+    if other_clusters:
+        lines.append("Other active problem clusters in this same project, for context:")
+        lines += [f"- {c.name} ({c.recurring_count} tickets, {c.get_trend_display()})" for c in other_clusters]
+    return lines
+
+
 def _build_summary_prompt(cluster, members):
     """Same copy/paste bridge as _build_copilot_prompt, asking for something
     different: not a root cause, just a one-line plain-English restatement of what
@@ -222,6 +241,10 @@ def _build_summary_prompt(cluster, members):
         "Here is a cluster of related IT support tickets. In ONE short, plain-English "
         "sentence — the kind a support manager would say out loud, not a list of "
         "keywords — summarize what problem this cluster represents.",
+        "",
+    ]
+    lines += _project_context_lines(cluster)
+    lines += [
         "",
         f"Cluster keywords: {cluster.keywords}",
         f"Recurring tickets: {cluster.recurring_count}",
@@ -244,6 +267,10 @@ def _build_trend_explanation_prompt(cluster, recent_members):
     lines = [
         f"A cluster of related IT support tickets is currently trending "
         f"'{cluster.get_trend_display()}'. Basis for that label: {cluster.trend_reasoning}",
+        "",
+    ]
+    lines += _project_context_lines(cluster)
+    lines += [
         "",
         "Based on the sample of its MOST RECENT ticket titles below, suggest a likely "
         "reason for this trend in 1-2 sentences (e.g. a shared vendor, a recent change, "
