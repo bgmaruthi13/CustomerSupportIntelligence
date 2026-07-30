@@ -205,7 +205,16 @@
         </div>
         {% endif %}
         <div>
-          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="trend" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate_trend_explanation">
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Generate with Copilot Bridge</button>
+          </form>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Sends this cluster's recent tickets to your local Copilot HTTP Bridge and saves the reply automatically. Needs the bridge's VS Code window running — falls back to the manual flow below if it isn't.</p>
+        </div>
+
+        <div>
+          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="trend" style="width:100%;justify-content:center">Copy Prompt for Copilot (manual)</button>
           <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Same bridge — copies a prompt to your clipboard, nothing sent anywhere by this app. Paste the response back below.</p>
           <div id="trendCopyFallback" class="copy-fallback" style="display:none;margin-top:8px">
             <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>

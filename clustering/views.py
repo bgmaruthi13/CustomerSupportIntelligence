@@ -313,6 +313,17 @@ def cluster_detail(request, pk):
         messages.success(request, "Trend explanation saved.") if cluster.ai_trend_explanation else messages.success(request, "Trend explanation cleared.")
         return redirect("clustering:detail", pk=cluster.id)
 
+    if request.method == "POST" and request.POST.get("action") == "generate_trend_explanation":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        recent_members = ClusterMember.objects.filter(cluster=cluster).select_related("ticket").order_by("-ticket__created_at")[:10]
+        try:
+            cluster.ai_trend_explanation = ask(_build_trend_explanation_prompt(cluster, recent_members))[:500]
+            cluster.save(update_fields=["ai_trend_explanation"])
+            messages.success(request, "Trend explanation generated via the Copilot HTTP Bridge.")
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a trend explanation: {exc} You can still use the Copy Prompt / manual paste flow below.")
+        return redirect("clustering:detail", pk=cluster.id)
+
     # Most-recent-first sample for the trend-explanation prompt — a cause for a
     # *recent* shift is more likely visible in what's showing up lately than across
     # the cluster's full history (which members_by_similarity/members represent).
