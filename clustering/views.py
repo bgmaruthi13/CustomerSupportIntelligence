@@ -942,6 +942,33 @@ def duplicates(request):
     return render(request, "clustering/duplicates.html", context)
 
 
+@login_required
+def duplicates_download(request):
+    """CSV of every DuplicateCandidate pair for the project - all statuses
+    (pending/confirmed/dismissed), not just the pending ones the page itself
+    shows, since status/reviewed_by are only meaningful columns across more
+    than one status value."""
+    project = get_current_project(request)
+    if not project:
+        return redirect("clustering:duplicates")
+
+    pairs = (DuplicateCandidate.objects.filter(ticket_a__project=project)
+             .select_related("ticket_a", "ticket_b", "reviewed_by")
+             .order_by("-similarity"))
+
+    rows = (
+        (p.ticket_a.external_id, p.ticket_a.title, p.ticket_b.external_id, p.ticket_b.title,
+         f"{p.similarity:.1f}", p.get_status_display(), p.reviewed_by.username if p.reviewed_by else "",
+         p.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if p.reviewed_at else "", p.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for p in pairs.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Ticket A ID", "Ticket A Title", "Ticket B ID", "Ticket B Title", "Similarity %", "Status", "Reviewed By", "Reviewed At", "Created At"],
+        filename=f"duplicate_candidates_project{project.id}",
+    )
+
+
 GLOBAL_CLUSTERS_SORT_FIELDS = {
     "name": "name",
     "recurring": "recurring_count",

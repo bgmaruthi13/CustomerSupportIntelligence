@@ -16,6 +16,7 @@ urlpatterns = [
     path("similar/<int:ticket_id>/", views.similar_tickets, name="similar_tickets"),
     path("categorize/", views.categorize_tickets, name="categorize"),
     path("duplicates/", views.duplicates, name="duplicates"),
+    path("duplicates/download/", views.duplicates_download, name="duplicates_download"),
     path("traditional-ml/", views.traditional_ml, name="traditional_ml"),
     path("generative-ai/", views.generative_ai, name="generative_ai"),
     path("global/", views.global_clustering, name="global_clustering"),

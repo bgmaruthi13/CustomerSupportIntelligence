@@ -26,6 +26,7 @@
 {% elif not pending_count %}
 <div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
   No pending possible duplicates. {% if reviewed_count %}{{ reviewed_count }} pair{{ reviewed_count|pluralize }} already reviewed.{% endif %} Run a scan to check for new ones (e.g. after a fresh upload).
+  {% if reviewed_count %}<div style="margin-top:14px"><a class="btn btn-outline" href="{% url 'clustering:duplicates_download' %}">Download CSV ({{ reviewed_count }} reviewed pair{{ reviewed_count|pluralize }})</a></div>{% endif %}
 </div>
 {% else %}
 <div class="card" style="margin-bottom:20px">
@@ -40,13 +41,16 @@
       <div class="card-title">Pending Review</div>
       <span class="info-dot" data-tip="'Confirm Duplicate' and 'Not a Duplicate' only record your decision here — neither button deletes or merges a ticket. A reviewed pair won't be flagged again." tabindex="0">i</span>
     </div>
-    {% if bulk_eligible_count %}
-    <form method="post" onsubmit="return confirm('Confirm all {{ bulk_eligible_count }} pending pair{{ bulk_eligible_count|pluralize }} at ≥{{ bulk_confirm_threshold }}% similarity as duplicates?');">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="bulk_confirm">
-      <button type="submit" class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--red);border-color:var(--red)">Confirm All ≥{{ bulk_confirm_threshold }}% ({{ bulk_eligible_count }})</button>
-    </form>
-    {% endif %}
+    <div style="display:flex;gap:8px;align-items:center">
+      {% if bulk_eligible_count %}
+      <form method="post" onsubmit="return confirm('Confirm all {{ bulk_eligible_count }} pending pair{{ bulk_eligible_count|pluralize }} at ≥{{ bulk_confirm_threshold }}% similarity as duplicates?');">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk_confirm">
+        <button type="submit" class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--red);border-color:var(--red)">Confirm All ≥{{ bulk_confirm_threshold }}% ({{ bulk_eligible_count }})</button>
+      </form>
+      {% endif %}
+      <a class="btn btn-outline" href="{% url 'clustering:duplicates_download' %}">Download CSV (all pairs)</a>
+    </div>
   </div>
   <div class="card-body">
     <table class="task-table">
