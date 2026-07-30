@@ -197,6 +197,10 @@ def _build_copilot_prompt(cluster, members):
     lines = [
         "Here is a cluster of related IT support tickets. Suggest the likely root cause and a recommended resolution.",
         "",
+    ]
+    lines += _project_context_lines(cluster)
+    lines += [
+        "",
         f"Cluster: {cluster.name}",
         f"Keywords: {cluster.keywords}",
         f"Recurring tickets: {cluster.recurring_count}",
@@ -305,6 +309,15 @@ def cluster_detail(request, pk):
         MEMBERS_SORT_FIELDS, default_field="similarity", default_dir="desc", param_prefix="members",
     )[:200]
 
+    resolution_draft = None
+    if request.method == "POST" and request.POST.get("action") == "generate_resolution_draft":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        try:
+            resolution_draft = ask(_build_copilot_prompt(cluster, members_by_similarity))
+            messages.info(request, "Draft generated via the Copilot HTTP Bridge below — review and edit before saving. Nothing is saved yet.")
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a draft: {exc} You can still use the Copy Prompt / manual paste flow below.")
+
     if request.method == "POST" and request.POST.get("action") == "save_resolution":
         notes = request.POST.get("resolution_notes", "").strip()
         source = request.POST.get("resolution_source", "manual")
@@ -402,6 +415,7 @@ def cluster_detail(request, pk):
             ) if project.cost_per_ticket else None
         ),
         "cost_currency_symbol": project.cost_currency_symbol,
+        "resolution_draft": resolution_draft,
     }
     return render(request, "clustering/detail.html", context)
 
