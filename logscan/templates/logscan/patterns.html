@@ -18,8 +18,11 @@
 {% if clusters %}
 <div class="card">
   <div class="card-header">
-    <div class="card-title">Patterns</div>
-    <div class="card-subtitle">{{ clusters.0.lines_analyzed }} recent lines analyzed</div>
+    <div>
+      <div class="card-title">Patterns</div>
+      <div class="card-subtitle">{{ clusters.0.lines_analyzed }} recent lines analyzed</div>
+    </div>
+    <a class="btn btn-outline" href="{% url 'logscan:patterns_download' source.id %}">Download CSV</a>
   </div>
   <div class="card-body">
     <table class="task-table">

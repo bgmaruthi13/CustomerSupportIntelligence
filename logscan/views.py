@@ -274,6 +274,28 @@ def patterns(request, pk):
 
 
 @login_required
+def patterns_download(request, pk):
+    """CSV of one source's Find Patterns results. example_line is already
+    redact_pii()'d before it's ever saved to LogPatternCluster (see the
+    model's own docstring), so this export carries the same never-raw
+    guarantee as the on-screen table — no extra redaction step needed here."""
+    project = get_current_project(request)
+    source = get_object_or_404(LogSource, id=pk, project=project)
+    clusters = LogPatternCluster.objects.filter(source=source).order_by("-recurring_count")
+
+    rows = (
+        (c.name, c.keywords, c.recurring_count, f"{c.confidence:.0f}", "Yes" if c.is_noise else "No",
+         c.example_line, c.lines_analyzed, c.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for c in clusters.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Pattern", "Keywords", "Recurring Count", "Confidence %", "Is Noise", "Example (redacted)", "Lines Analyzed", "Created At"],
+        filename=f"log_patterns_source{source.id}",
+    )
+
+
+@login_required
 def run_correlation(request):
     """Triggers logscan.correlation.correlate_project synchronously — it only
     compares timestamps already sitting on existing LogPatternCluster rows
@@ -305,3 +327,37 @@ def correlations(request):
               .order_by("-overlap_start"))
     context["groups"] = groups
     return render(request, "logscan/correlations.html", context)
+
+
+@login_required
+def correlations_download(request):
+    """CSV of every cross-source correlation group, flattened to one row per
+    (group, member cluster) pair — a correlation is a group of clusters from
+    different sources, so the group-level fields (overlap window, source
+    count) repeat across that group's rows, same shape a spreadsheet user
+    would want to pivot on."""
+    project = get_current_project(request)
+    if not project:
+        return redirect("logscan:correlations")
+
+    groups = (LogPatternCorrelation.objects.filter(project=project)
+              .prefetch_related("members__cluster__source")
+              .order_by("-overlap_start"))
+
+    def iter_rows():
+        for group in groups:
+            for member in group.members.all():
+                c = member.cluster
+                yield (
+                    group.overlap_start.strftime("%Y-%m-%d %H:%M:%S"), group.overlap_end.strftime("%Y-%m-%d %H:%M:%S"),
+                    group.source_count, group.window_minutes, c.source.name, c.name, c.keywords, c.recurring_count,
+                    c.first_line_at.strftime("%Y-%m-%d %H:%M:%S") if c.first_line_at else "",
+                    c.last_line_at.strftime("%Y-%m-%d %H:%M:%S") if c.last_line_at else "",
+                    c.example_line,
+                )
+
+    return csv_response(
+        rows=iter_rows(),
+        headers=["Overlap Start", "Overlap End", "Source Count", "Window (min)", "Source", "Pattern", "Keywords", "Recurring Count", "Pattern First Seen", "Pattern Last Seen", "Example (redacted)"],
+        filename=f"cross_source_patterns_project{project.id}",
+    )

@@ -8,10 +8,13 @@
     <div class="page-title">Cross-Source Patterns</div>
     <div class="page-subtitle">Groups recurring patterns from different Log Sources whose recent activity overlapped in time — for spotting one incident that shows up across several tools at once, instead of reading each source's Find Patterns page separately.</div>
   </div>
-  <form method="post" action="{% url 'logscan:run_correlation' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-primary">Run Correlation</button>
-  </form>
+  <div style="display:flex;gap:8px;align-items:flex-start">
+    {% if groups %}<a class="btn btn-outline" href="{% url 'logscan:correlations_download' %}">Download CSV</a>{% endif %}
+    <form method="post" action="{% url 'logscan:run_correlation' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Run Correlation</button>
+    </form>
+  </div>
 </div>
 
 {% if groups %}
