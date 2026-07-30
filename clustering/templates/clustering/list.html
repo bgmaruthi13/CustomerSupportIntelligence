@@ -12,6 +12,7 @@
   <div style="display:flex;gap:8px">
     <a class="btn btn-teal" href="{% url 'clustering:traditional_ml' %}">Run Traditional ML</a>
     <a class="btn btn-violet" href="{% url 'clustering:generative_ai' %}">Run Generative AI</a>
+    {% if problem_count %}<a class="btn btn-violet btn-ai-generate" href="?engine={{ engine_filter }}&strategic_narrative=1">✨ Strategic Narrative</a>{% endif %}
     {% if ml_count or genai_count %}
     <form method="post" action="{% url 'clustering:reset_clusters' 'all' %}" onsubmit="return confirm('Reset ALL clustering results (both engines) for {{ project.name }}? Tickets and uploads are untouched — you can re-run either pipeline anytime.');">
       {% csrf_token %}
@@ -20,6 +21,13 @@
     {% endif %}
   </div>
 </div>
+
+{% if strategic_narrative %}
+<div class="ai-generated-panel" style="margin-bottom:20px">
+  <div class="ai-generated-label">✨ Strategic narrative across the top 5 Problem Candidates — generated via Copilot Bridge</div>
+  <div style="font-size:14px;color:var(--text-primary);line-height:1.7">{{ strategic_narrative }}</div>
+</div>
+{% endif %}
 
 <div class="kpi-grid">
   <div class="kpi-card blue"><div class="kpi-label">Total Clusters</div><div class="kpi-value">{{ ml_count|add:genai_count }}</div></div>

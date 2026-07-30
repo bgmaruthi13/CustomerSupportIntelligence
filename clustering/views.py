@@ -70,6 +70,32 @@ def attach_cost_impact(clusters, project):
     return clusters
 
 
+def _build_strategic_narrative_prompt(project, clusters):
+    """(user-requested leadership-demo wow factor #2) Synthesis ACROSS the top
+    problem clusters, not a summary of one — asks the model to find shared
+    threads (a common system/vendor, overlapping timing, one root cause
+    manifesting as several clusters) instead of restating each cluster in
+    turn. That's the difference between this and A.1's per-cluster summary:
+    this is meant to read as strategic analysis, not a label."""
+    lines = [
+        "Here are the top recurring problem clusters for an IT support project, "
+        "ranked by how often they recur. Look ACROSS all of them for a connecting "
+        "story - a shared system/vendor, overlapping timing, one root cause showing "
+        "up as multiple clusters - not a one-line summary of each in turn. 3-5 "
+        "sentences. If they're genuinely unrelated, say that plainly instead of "
+        "forcing a connection that isn't there.",
+        "",
+        f"Project: {project.name}" + (f" ({project.domain})" if project.domain else ""),
+        "",
+    ]
+    for c in clusters:
+        lines.append(
+            f"- {c.name} ({c.recurring_count} tickets, {c.get_trend_display()}, "
+            f"{c.confidence:.0f}% confidence, app: {c.top_application}, keywords: {c.keywords})"
+        )
+    return "\n".join(lines)
+
+
 @login_required
 def clusters_list(request):
     project = get_current_project(request)
@@ -96,6 +122,19 @@ def clusters_list(request):
     ml_last = Cluster.objects.filter(project=project, engine="traditional_ml", parent__isnull=True).order_by("-created_at").first()
     genai_last = Cluster.objects.filter(project=project, engine="generative_ai", parent__isnull=True).order_by("-created_at").first()
 
+    strategic_narrative = None
+    if request.GET.get("strategic_narrative") == "1":
+        top_problem_clusters = list(
+            Cluster.objects.filter(project=project, is_problem_candidate=True, parent__isnull=True)
+            .order_by("-recurring_count")[:5]
+        )
+        if top_problem_clusters:
+            from core.llm_bridge import LLMBridgeUnavailable, ask
+            try:
+                strategic_narrative = ask(_build_strategic_narrative_prompt(project, top_problem_clusters))
+            except LLMBridgeUnavailable as exc:
+                messages.error(request, f"Couldn't generate a strategic narrative: {exc}")
+
     context.update({
         "clusters": page_obj,
         "page_obj": page_obj,
@@ -114,6 +153,7 @@ def clusters_list(request):
         "show_country_col": qs.exclude(top_country="Unspecified").exists(),
         "show_cost_col": bool(project.cost_per_ticket),
         "cost_currency_symbol": project.cost_currency_symbol,
+        "strategic_narrative": strategic_narrative,
     })
     return render(request, "clustering/list.html", context)
 
