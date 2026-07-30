@@ -275,6 +275,50 @@ def _project_context_lines(cluster):
     return lines
 
 
+def _build_problem_record_prompt(cluster, members):
+    """(user-requested leadership-demo wow factor #3) A formal ITSM-format
+    Problem Record instead of a loose paragraph - the artifact leadership
+    will recognize as governance documentation, not a chatbot answer.
+    Deliberately structured with explicit section headers so the output is
+    consistently formatted regardless of what the model would default to."""
+    sample_titles = [m.ticket.title for m in members[:10]]
+    quarterly_cost = None
+    if cluster.project.cost_per_ticket:
+        recent_count = ClusterMember.objects.filter(
+            cluster=cluster, ticket__created_at__gte=timezone.now() - timedelta(days=COST_WINDOW_DAYS),
+        ).count()
+        quarterly_cost = estimate_quarterly_cost(recent_count, cluster.project.cost_per_ticket, COST_WINDOW_DAYS)
+
+    lines = [
+        "Draft a formal ITSM Problem Record from the data below. Use EXACTLY these "
+        "five section headers, each followed by its content on the next line(s) - "
+        "no extra sections, no preamble before 'Title':",
+        "Title: (one line, specific, not generic)",
+        "Description: (2-3 sentences, what is actually happening)",
+        "Business Impact: (who/what is affected, and the dollar figure below if given - don't invent one if not)",
+        "Root Cause: (best hypothesis from the evidence below - flag it as a hypothesis, not confirmed, unless the evidence is conclusive)",
+        "Proposed Next Steps: (2-3 concrete, specific actions - not generic advice like 'investigate further')",
+        "",
+    ]
+    lines += _project_context_lines(cluster)
+    lines += [
+        "",
+        f"Cluster: {cluster.name}",
+        f"Keywords: {cluster.keywords}",
+        f"Recurring tickets: {cluster.recurring_count}",
+        f"Trend: {cluster.get_trend_display()} — {cluster.trend_reasoning}" if cluster.trend_reasoning else f"Trend: {cluster.get_trend_display()}",
+        f"Confidence: {cluster.confidence:.0f}%",
+        f"Top country: {cluster.top_country}",
+        f"Top application: {cluster.top_application}",
+    ]
+    if quarterly_cost:
+        lines.append(f"Estimated cost if unaddressed: {cluster.project.cost_currency_symbol}{quarterly_cost:,.0f}/quarter at the current rate")
+    lines.append("")
+    lines.append("Sample ticket titles:")
+    lines += [f"- {t}" for t in sample_titles]
+    return "\n".join(lines)
+
+
 def _build_summary_prompt(cluster, members):
     """Same copy/paste bridge as _build_copilot_prompt, asking for something
     different: not a root cause, just a one-line plain-English restatement of what
@@ -371,6 +415,24 @@ def cluster_detail(request, pk):
         messages.success(request, "Resolution notes saved.") if notes else messages.success(request, "Resolution notes cleared.")
         return redirect("clustering:detail", pk=cluster.id)
 
+    problem_record_draft = None
+    if request.method == "POST" and request.POST.get("action") == "generate_problem_record":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        try:
+            problem_record_draft = ask(_build_problem_record_prompt(cluster, members_by_similarity))
+            messages.info(request, "Problem Record drafted via the Copilot HTTP Bridge below — review and edit before saving. Nothing is saved yet.")
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a Problem Record: {exc}")
+
+    if request.method == "POST" and request.POST.get("action") == "save_problem_record":
+        text = request.POST.get("problem_record_draft", "").strip()
+        cluster.problem_record_draft = text
+        cluster.problem_record_added_by = request.user if text else None
+        cluster.problem_record_added_at = timezone.now() if text else None
+        cluster.save(update_fields=["problem_record_draft", "problem_record_added_by", "problem_record_added_at"])
+        messages.success(request, "Problem Record saved.") if text else messages.success(request, "Problem Record cleared.")
+        return redirect("clustering:detail", pk=cluster.id)
+
     if request.method == "POST" and request.POST.get("action") == "save_ai_summary":
         cluster.ai_summary = request.POST.get("ai_summary", "").strip()
         cluster.save(update_fields=["ai_summary"])
@@ -456,6 +518,7 @@ def cluster_detail(request, pk):
         ),
         "cost_currency_symbol": project.cost_currency_symbol,
         "resolution_draft": resolution_draft,
+        "problem_record_draft": problem_record_draft,
     }
     return render(request, "clustering/detail.html", context)
 

@@ -354,6 +354,44 @@
         </form>
       </div>
     </div>
+
+    {% if cluster.is_problem_candidate %}
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="card-title">Problem Record (ITSM Draft)</div>
+          <span class="info-dot" data-tip="A formal Problem Record — Title / Description / Business Impact / Root Cause / Proposed Next Steps — distinct from the looser Resolution notes above. Generated via the Copilot HTTP Bridge, reviewed and saved separately." tabindex="0">i</span>
+        </div>
+      </div>
+      <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
+        {% if cluster.problem_record_draft and not problem_record_draft %}
+        <div style="padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Saved by {{ cluster.problem_record_added_by.username|default:"unknown" }} on {{ cluster.problem_record_added_at|date:"d M Y" }}</div>
+          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6;font-family:ui-monospace,monospace">{{ cluster.problem_record_draft }}</div>
+        </div>
+        {% endif %}
+
+        <div>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate_problem_record">
+            <button type="submit" class="btn btn-violet btn-ai-generate" style="width:100%;justify-content:center">✨ Generate Problem Record with Copilot Bridge</button>
+          </form>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Drafts a formal Title / Description / Business Impact / Root Cause / Proposed Next Steps record below for review — nothing is saved automatically.</p>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_problem_record">
+          <div class="form-field">
+            <label>Problem Record</label>
+            <textarea name="problem_record_draft" rows="10" style="width:100%;font-family:ui-monospace,monospace;font-size:12px">{{ problem_record_draft|default:cluster.problem_record_draft }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Save Problem Record</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 

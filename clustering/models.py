@@ -59,6 +59,16 @@ class Cluster(models.Model):
     resolution_source = models.CharField(max_length=20, blank=True, choices=[("manual", "Analyst-authored"), ("copilot_assisted", "AI-suggested via Copilot")])
     resolution_added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     resolution_added_at = models.DateTimeField(null=True, blank=True)
+    problem_record_draft = models.TextField(
+        blank=True,
+        help_text="Formal ITSM-format Problem Record (Title/Description/Business Impact/Root Cause/"
+                   "Proposed Next Steps), generated via the Copilot HTTP Bridge (BACKLOG A.12, "
+                   "user-requested leadership-demo/governance-artifact feature) and reviewed/edited "
+                   "before saving — a distinct, more formal document than resolution_notes, not a "
+                   "replacement for it.",
+    )
+    problem_record_added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    problem_record_added_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
