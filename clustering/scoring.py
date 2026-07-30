@@ -2,6 +2,9 @@ from collections import Counter
 from datetime import timedelta
 
 from django.utils import timezone
+from scipy.stats import binomtest
+
+TREND_SIGNIFICANCE_ALPHA = 0.05
 
 PROBLEM_RECURRING_THRESHOLD = 5
 PROBLEM_CONFIDENCE_THRESHOLD = 65
@@ -35,8 +38,19 @@ def compute_trend(dates):
     earliest third of that same range (the middle third is deliberately excluded — it's
     the transition period and including it would dilute the early/late contrast).
 
-    Returns (trend, reasoning) — reasoning is a plain-English sentence citing the actual
-    counts and date windows behind the label, so "Rising" isn't just an unexplained badge.
+    Statistical basis (BACKLOG C.1): early and late windows are equal length (both
+    `third`), so under the null hypothesis of an unchanged rate, late_count is
+    Binomial(n=early_count+late_count, p=0.5) — this is the conditional/exact form
+    of a Poisson rate-ratio test when exposure times match, so a plain binomial test
+    (scipy.stats.binomtest) is the correct tool here, not an approximation. This
+    replaces the old fixed "±25% more/fewer" cutoff, which flagged noise on small
+    clusters as a trend (e.g. 2 tickets vs 1 is >25% "more" but not remotely
+    significant) — the p-value now reflects whether the split is actually
+    surprising given the sample size, not just its raw ratio.
+
+    Returns (trend, reasoning) — reasoning is a plain-English sentence citing the
+    actual counts, date windows, and p-value behind the label, so "Rising" isn't
+    just an unexplained badge.
     """
     if len(dates) < 4:
         return "stable", "Fewer than 4 tickets in this cluster — not enough spread over time to call a trend."
@@ -56,11 +70,15 @@ def compute_trend(dates):
     late_window = f"{late_cutoff:%d %b %Y}–{sorted_dates[-1]:%d %b %Y}"
     basis = f"{late_count} tickets in the most recent third of this cluster's timeline ({late_window}) vs {early_count} in the earliest third ({early_window})"
 
-    if late_count > early_count * 1.25:
-        return "rising", f"{basis} — recurrence is accelerating (>25% more in the recent window)."
-    if late_count < early_count * 0.75:
-        return "falling", f"{basis} — recurrence is easing off (>25% fewer in the recent window)."
-    return "stable", f"{basis} — volume is holding steady (within 25% either way)."
+    n = early_count + late_count
+    p_value = binomtest(late_count, n, p=0.5, alternative="two-sided").pvalue
+    significant = p_value < TREND_SIGNIFICANCE_ALPHA
+
+    if significant and late_count > early_count:
+        return "rising", f"{basis} — recurrence is accelerating (p={p_value:.3f}, statistically significant at α={TREND_SIGNIFICANCE_ALPHA})."
+    if significant and late_count < early_count:
+        return "falling", f"{basis} — recurrence is easing off (p={p_value:.3f}, statistically significant at α={TREND_SIGNIFICANCE_ALPHA})."
+    return "stable", f"{basis} — no statistically significant change (p={p_value:.3f}, α={TREND_SIGNIFICANCE_ALPHA})."
 
 
 def compute_problem_thresholds(cluster_stats):

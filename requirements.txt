@@ -9,6 +9,7 @@ Django==6.0.7
 pandas==3.0.3
 numpy==2.4.6
 openpyxl==3.1.5
+scipy==1.18.0
 scikit-learn==1.9.0
 hdbscan==0.8.44
 sentence-transformers==5.6.0
