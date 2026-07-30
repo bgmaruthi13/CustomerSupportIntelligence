@@ -116,16 +116,16 @@ just trusted from docs, the same rigor the rest of `logscan` was verified with.*
 
 | # | Story | Pts | Status |
 |---|---|---|---|
-| D.0 | Benchmark: install `presidio-analyzer`, confirm NLP-engine-disabled mode is actually as fast as the current regex-only `detect_pii()` on a real test file — go/no-go gate for D.1 | 2 | Not started |
-| D.1 | Replace `detect_pii()`'s hand-rolled email/card/IBAN/phone/account regex with Presidio's equivalent regex-based recognizers (NLP engine disabled) — same speed, broader coverage (adds national-ID formats), one less thing to hand-maintain. Remap onto existing `PII_TYPES`/`LogPIIFinding`/`PIIFinding` schema | 5 | Not started — blocked on D.0 |
-| D.2 | Add `PERSON`/`LOCATION` detection as a new opt-in-per-source toggle (`use_name_location_detection`, off by default — same pattern as `scan_phone_numbers`), backed by Presidio's NLP engine + `en_core_web_sm` (13MB — smallest spaCy model; upgrade to `en_core_web_md` later only if `sm`'s accuracy proves too weak in practice) | 5 | Not started — blocked on D.1 |
-| D.3 | Re-verify: chunk-boundary correctness, synthetic planted-value tests, and the full end-to-end browser verification `logscan` was originally built with — against the new engine, not assumed carried over | 3 | Not started — blocked on D.1/D.2 |
+| D.0 | Benchmark: install `presidio-analyzer`, confirm NLP-engine-disabled mode is actually as fast as the current regex-only `detect_pii()` on a real test file — go/no-go gate for D.1 | 2 | **Done — NO-GO.** Benchmarked on a realistic 100,000-line synthetic log (~0.5% PII density, matching logscan's `include_phone=False` call path) against `presidio-analyzer` 2.2.364 with its NLP engine genuinely disabled (`spacy.blank("en")` — tokenizer only, zero trained weights/inference, confirmed via a 0.35s load time). Current `detect_pii()`: 45,852 lines/sec. Presidio (NLP disabled): 3,570 lines/sec — **12.84x slower**, and found *fewer* matches on the same input (273 vs 369) despite entities scoped to only EMAIL_ADDRESS/CREDIT_CARD/IBAN_CODE. The claim that disabling Presidio's NLP engine gets back to regex-only speed does not hold — its `AnalyzerEngine.analyze()` per-call overhead (recognizer registry dispatch, span/context handling) dominates even with no model inference happening. |
+| D.1 | Replace `detect_pii()`'s hand-rolled email/card/IBAN/phone/account regex with Presidio's equivalent regex-based recognizers (NLP engine disabled) — same speed, broader coverage (adds national-ID formats), one less thing to hand-maintain. Remap onto existing `PII_TYPES`/`LogPIIFinding`/`PIIFinding` schema | 5 | **Blocked — D.0 was a NO-GO.** Not proceeding: replacing the current detector would make every scan ~13x slower for a 100GB-scale tool built specifically to avoid that kind of per-line cost, with no accuracy upside on the formats already covered. |
+| D.2 | Add `PERSON`/`LOCATION` detection as a new opt-in-per-source toggle (`use_name_location_detection`, off by default — same pattern as `scan_phone_numbers`), backed by Presidio's NLP engine + `en_core_web_sm` (13MB — smallest spaCy model; upgrade to `en_core_web_md` later only if `sm`'s accuracy proves too weak in practice) | 5 | Not blocked by D.0/D.1's outcome — this was always going to need Presidio's real NLP engine (name/location detection has no realistic regex substitute) and was always meant to be opt-in-per-source specifically because of the inference cost, same reasoning `scan_phone_numbers` already uses. Genuinely still viable as a standalone opt-in feature; just no longer bundled with a D.1 replacement of the fast-path detectors. |
+| D.3 | Re-verify: chunk-boundary correctness, synthetic planted-value tests, and the full end-to-end browser verification `logscan` was originally built with — against the new engine, not assumed carried over | 3 | Blocked on D.2, if D.2 is picked up later |
 
-**Recommended starting point:** D.0 — cheap (a couple hours), and the honest
-go/no-go gate for the rest: if disabling Presidio's NLP engine doesn't actually
-match current regex-only speed, D.1 needs a different design (e.g. keep the current
-hand-rolled detectors and use Presidio only for D.2's `PERSON`/`LOCATION` toggle,
-rather than replacing everything).
+**Outcome of this pass:** D.0's benchmark was the honest gate BACKLOG.md asked
+for, and it says no — keep the current hand-rolled `detect_pii()` as the
+always-on fast path. D.2 (opt-in name/location detection) is unaffected by this
+and remains a real, separately-viable feature if there's appetite for it later —
+it was never going to be free either way.
 
 ---
 
