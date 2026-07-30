@@ -991,6 +991,28 @@ DUPLICATES_SORT_FIELDS = {
 DUPLICATES_BULK_CONFIRM_THRESHOLD = 95
 
 
+def _build_duplicate_explanation_prompt(pair):
+    """BACKLOG A.5 — one sentence on *why* a flagged pair looks like a duplicate,
+    beyond the bare similarity score. scan_for_duplicates already required close
+    timing + a matching reporter/app before a pair is even flagged (see
+    DuplicateCandidate's own docstring), so this isn't guessing from scratch —
+    it's articulating the same signal a reviewer already implicitly trusts."""
+    a, b = pair.ticket_a, pair.ticket_b
+    lines = [
+        "Two IT support tickets were flagged as likely duplicates (cosine similarity "
+        f"{pair.similarity:.0f}%, reported within days of each other, same reporter or "
+        "application). In ONE short sentence, explain what makes them look like the same "
+        "underlying issue - specific enough to help a reviewer decide, not just restating "
+        "the similarity score.",
+        "",
+        f"Ticket A ({a.external_id}): {a.title}",
+        f"Ticket B ({b.external_id}): {b.title}",
+        f"Reported by: {a.created_by} / {b.created_by}",
+        f"Application: {a.application} / {b.application}",
+    ]
+    return "\n".join(lines)
+
+
 @login_required
 def duplicates(request):
     project = get_current_project(request)
@@ -1000,6 +1022,16 @@ def duplicates(request):
 
     if request.method == "POST":
         action = request.POST.get("action")
+        if action == "generate_duplicate_explanation":
+            from core.llm_bridge import LLMBridgeUnavailable, ask
+            pair = get_object_or_404(DuplicateCandidate, id=request.POST.get("pair_id"), ticket_a__project=project)
+            try:
+                pair.ai_explanation = ask(_build_duplicate_explanation_prompt(pair))[:500]
+                pair.save(update_fields=["ai_explanation"])
+                messages.success(request, "Explanation generated via the Copilot HTTP Bridge.")
+            except LLMBridgeUnavailable as exc:
+                messages.error(request, f"Couldn't generate an explanation: {exc}")
+            return redirect("clustering:duplicates")
         if action == "scan":
             found = scan_for_duplicates(project)
             if found:

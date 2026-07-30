@@ -253,6 +253,12 @@ class DuplicateCandidate(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    ai_explanation = models.CharField(
+        max_length=500, blank=True,
+        help_text="One-sentence explanation of *why* this pair looks like a duplicate beyond the "
+                   "similarity score, generated via the Copilot HTTP Bridge (BACKLOG A.5) — read-only "
+                   "reviewer aid, not saved automatically, never affects status/scoring.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
