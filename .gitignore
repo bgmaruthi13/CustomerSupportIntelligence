@@ -5,7 +5,10 @@ db.sqlite3
 media/
 .installed
 *.log
+!sample_data/**/*.log
 .env
 staticfiles/
 logs/
+!sample_data/logs/
+!sample_data/logs/**
 application/test_data/

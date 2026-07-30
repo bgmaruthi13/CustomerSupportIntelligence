@@ -219,6 +219,15 @@ class LogPatternCluster(models.Model):
     is_noise = models.BooleanField(default=False, help_text="True for the catch-all 'unclustered' bucket, same convention as clustering.models.Cluster")
     lines_analyzed = models.PositiveIntegerField(default=0, help_text="How many lines this run covered in total — context for recurring_count, e.g. '12 of 4,213 recent lines'")
 
+    # Best-effort ISO-8601 extraction (pattern_text.extract_timestamp) from
+    # this cluster's own member lines — null when none of them had a
+    # parseable timestamp (see that function's docstring for format
+    # coverage). Exists so logscan.correlation can compare time ranges
+    # across clusters from different sources without re-reading log files;
+    # a cluster with no time range simply can't participate in correlation.
+    first_line_at = models.DateTimeField(null=True, blank=True)
+    last_line_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -227,3 +236,40 @@ class LogPatternCluster(models.Model):
 
     def __str__(self):
         return f"[{self.engine}] {self.name} ({self.recurring_count})"
+
+
+class LogPatternCorrelation(models.Model):
+    """One cross-source correlation finding for a Project — a group of
+    non-noise LogPatternCluster rows from DIFFERENT LogSources whose time
+    ranges overlap within `window_minutes` of each other, surfacing 'these
+    different tools/projects logged something in the same window' instead
+    of N independent per-source pattern lists nobody would think to compare
+    by hand. See logscan.correlation for how groups are formed.
+
+    Doesn't re-read or re-cluster anything — it only compares
+    first_line_at/last_line_at ranges already computed by
+    pattern_analysis.analyze_patterns() for each source's most recent run.
+    Wiped and rebuilt per project on every run, same convention
+    LogPatternCluster already uses."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="pattern_correlations")
+    window_minutes = models.PositiveIntegerField(default=10)
+    overlap_start = models.DateTimeField()
+    overlap_end = models.DateTimeField()
+    source_count = models.PositiveIntegerField(default=0, help_text="How many distinct LogSources contributed a cluster to this group")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-overlap_start"]
+
+    def __str__(self):
+        return f"Correlation across {self.source_count} sources @ {self.overlap_start:%Y-%m-%d %H:%M}"
+
+
+class LogPatternCorrelationMember(models.Model):
+    correlation = models.ForeignKey(LogPatternCorrelation, on_delete=models.CASCADE, related_name="members")
+    cluster = models.ForeignKey(LogPatternCluster, on_delete=models.CASCADE, related_name="correlation_memberships")
+
+    class Meta:
+        unique_together = [("correlation", "cluster")]

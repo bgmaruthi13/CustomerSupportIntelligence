@@ -85,6 +85,9 @@
   <a class="nav-item {% if active_nav == 'log-findings' %}active{% endif %}" href="{% url 'logscan:findings_report' %}">
     <span>Log PII Alerts</span>
   </a>
+  <a class="nav-item {% if active_nav == 'log-correlations' %}active{% endif %}" href="{% url 'logscan:correlations' %}">
+    <span>Cross-Source Patterns</span>
+  </a>
 
   <div class="sidebar-section-label">Reference</div>
   <a class="nav-item muted {% if active_nav == 'how-it-works' %}active{% endif %}" href="{% url 'how_it_works' %}">

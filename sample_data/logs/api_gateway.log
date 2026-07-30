@@ -1,0 +1,41 @@
+2026-07-20 08:12:03 INFO gateway started, listening on 0.0.0.0:8443
+2026-07-20 08:14:11 INFO request GET /api/v2/orders/8841 from 10.10.4.22 completed in 82ms
+2026-07-20 08:15:02 INFO connection from 10.10.4.9 timed out after 30 retries
+2026-07-20 08:16:47 INFO connection from 10.10.4.51 timed out after 12 retries
+2026-07-20 08:18:20 INFO request POST /api/v2/checkout from 10.10.4.7 completed in 145ms
+2026-07-20 08:19:55 INFO connection from 10.10.4.33 timed out after 45 retries
+2026-07-20 08:21:10 WARN downstream payment-service returned 503, retrying request 7f3a2c
+2026-07-20 08:22:44 INFO connection from 10.10.4.88 timed out after 8 retries
+2026-07-20 08:24:31 INFO connection from 10.10.4.14 timed out after 60 retries
+2026-07-20 08:26:02 INFO request GET /api/v2/orders/9012 from 10.10.4.61 completed in 91ms
+2026-07-20 08:27:18 INFO connection from 10.10.4.5 timed out after 22 retries
+2026-07-20 08:29:03 WARN downstream payment-service returned 503, retrying request a91be4
+2026-07-20 08:30:41 INFO connection from 10.10.4.77 timed out after 3 retries
+2026-07-20 08:32:15 INFO connection from 10.10.4.19 timed out after 55 retries
+2026-07-20 08:33:50 INFO request POST /api/v2/checkout from 10.10.4.44 completed in 130ms
+2026-07-20 08:35:22 INFO connection from 10.10.4.62 timed out after 18 retries
+2026-07-20 08:37:09 WARN downstream payment-service returned 503, retrying request c204f8
+2026-07-20 08:38:44 INFO connection from 10.10.4.28 timed out after 40 retries
+2026-07-20 08:40:12 INFO connection from 10.10.4.91 timed out after 9 retries
+2026-07-20 08:41:58 ERROR order confirmation email bounced for customer, contact jane.doe@example.com to resend manually
+2026-07-20 08:43:33 INFO connection from 10.10.4.36 timed out after 27 retries
+2026-07-20 08:45:07 INFO request GET /api/v2/orders/9188 from 10.10.4.15 completed in 76ms
+2026-07-20 08:46:49 INFO connection from 10.10.4.72 timed out after 14 retries
+2026-07-20 08:48:21 WARN downstream payment-service returned 503, retrying request 5e19a0
+2026-07-20 08:49:55 INFO connection from 10.10.4.48 timed out after 33 retries
+2026-07-20 08:51:30 INFO connection from 10.10.4.83 timed out after 5 retries
+2026-07-20 08:53:02 INFO request POST /api/v2/checkout from 10.10.4.11 completed in 112ms
+2026-07-20 08:54:41 INFO connection from 10.10.4.29 timed out after 48 retries
+2026-07-20 08:56:15 WARN downstream payment-service returned 503, retrying request 88bd21
+2026-07-20 08:57:52 INFO connection from 10.10.4.66 timed out after 21 retries
+2026-07-20 08:59:30 INFO connection from 10.10.4.53 timed out after 37 retries
+2026-07-20 09:01:04 ERROR card authorization failed for txn, card ending flagged 4111111111111111 - manual review needed
+2026-07-20 09:02:48 INFO connection from 10.10.4.97 timed out after 16 retries
+2026-07-20 09:04:19 INFO request GET /api/v2/orders/9204 from 10.10.4.6 completed in 68ms
+2026-07-20 09:05:57 INFO connection from 10.10.4.41 timed out after 29 retries
+2026-07-20 09:07:33 WARN downstream payment-service returned 503, retrying request d7f402
+2026-07-20 09:09:11 INFO connection from 10.10.4.78 timed out after 6 retries
+2026-07-20 09:10:46 INFO connection from 10.10.4.23 timed out after 52 retries
+2026-07-20 09:12:20 INFO request POST /api/v2/checkout from 10.10.4.99 completed in 158ms
+2026-07-20 09:13:58 INFO connection from 10.10.4.35 timed out after 11 retries
+2026-07-20 09:15:34 WARN downstream payment-service returned 503, retrying request 3ac910

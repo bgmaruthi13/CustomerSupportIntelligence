@@ -30,10 +30,29 @@ Models before they're buildable.*
 | A.3 | Smart Search synthesis step (RAG answer, not just retrieval) | 5 | Not started — needs an LLM API (unattended, doesn't fit copy/paste) |
 | A.4 | Trend/anomaly explanation — hypothesis for *why* a cluster is rising/falling, stored on `Cluster.ai_trend_explanation` | 3 | **Done** — same copy/paste bridge, sample is the cluster's most-recent tickets; hidden when trend is "stable" |
 | A.5 | Executive brief narrative generation | 2 | Not started — needs an LLM API + Theme B's KPI snapshot first |
+| A.6 | Upgrade A.1/A.4 from the copy/paste bridge to a real, automatic API call, and extend `_build_copilot_prompt`/`_build_summary_prompt` with project-level context (project name/domain, other active clusters in the same project) — today's prompts are cluster-only, no project framing | 3 | Not started — blocked on A.0 + a provider decision |
 
-**Next up:** A.0 (LLM API integration) is the blocker for A.3/A.5 — see the
+**Next up:** A.0 (LLM API integration) is the blocker for A.3/A.5/A.6 — see the
 conversation note above on GitHub Models as a callable option that doesn't need a
 separate Anthropic/OpenAI subscription.
+
+**Provider decision (user-requested research, 2026-07-24, not yet decided):**
+Azure OpenAI needs no special "AI license" beyond a normal Azure subscription plus
+an Azure OpenAI resource provisioned in-portal (regional/model access gating has
+loosened over time but should be re-checked live, not assumed from memory) — it's
+consumption-based, billed per token, not a seat license. For a solo/small-team
+project, Azure's provisioning overhead (subscription, resource creation, possible
+regional gating) may cost more setup time than it saves versus going straight to
+the Anthropic or OpenAI API directly (API key + billing, live in minutes) — Azure
+mainly earns its keep if there's already Azure spend/compliance requirements to
+consolidate onto. **Cost is not the constraint at this project's scale**: against
+the current 52 non-noise clusters, a full summary+trend-explanation run costs well
+under $1 on a cheap-tier model (GPT-4o-mini/Claude Haiku class, ~$0.15–1/M input,
+~$0.60–5/M output) and only a few dollars even on a frontier-tier model — even
+re-run daily for a month this stays single-digit dollars. **Estimated effort once a
+provider/key is chosen: ~2–3 days** (A.0's client foundation ~1 day, A.6's
+project-context prompt extension ~0.5–1 day, verification ~0.5 day) — not counting
+any lead time an org's own Azure access-request process might add.
 
 ---
 
@@ -107,6 +126,35 @@ go/no-go gate for the rest: if disabling Presidio's NLP engine doesn't actually
 match current regex-only speed, D.1 needs a different design (e.g. keep the current
 hand-rolled detectors and use Presidio only for D.2's `PERSON`/`LOCATION` toggle,
 rather than replacing everything).
+
+---
+
+## Theme E — Download/export results from every results page
+
+*User-requested (2026-07-24): every page that shows computed results — clusters,
+duplicates, PII findings, discovered log patterns, cross-source correlations — is
+currently view-only. No CSV/JSON export exists anywhere in the app today (`tickets`
+has file *upload* for ticket import, not export). Someone reviewing clusters or
+findings outside the app — pasting into a spreadsheet, attaching to an incident
+ticket, feeding a management report — has no way to get the data out except
+copy-pasting the rendered table.*
+
+| # | Story | Pts |
+|---|---|---|
+| E.0 | Shared CSV export helper (e.g. `core/export.py::csv_response(rows, headers, filename)`) — one utility every page's download button calls, instead of N one-off `HttpResponse`/`csv.writer` implementations | 2 |
+| E.1 | Download on Problem Clusters (`clustering/list.html`, `detail.html`) — cluster summary CSV (name, keywords, recurring_count, confidence, trend) and a per-cluster CSV of its member tickets | 3 |
+| E.2 | Download on Global Clustering (`global_clustering.html`, `global_cluster_detail.html`) — same shape as E.1, across-project | 2 |
+| E.3 | Download on Duplicate Candidates (`duplicates.html`) — candidate pairs + status/reviewed_by | 1 |
+| E.4 | Download on Log PII Alerts (`logscan/findings.html`) — **masked previews only, never the raw matched value**, same guarantee the page and `LogPIIFinding` model already enforce; this is a redaction-preserving export, not a new exposure surface | 2 |
+| E.5 | Download on Log Patterns + Cross-Source Patterns (`logscan/patterns.html`, `correlations.html`) — cluster/correlation summary rows, `example_line` already redacted before it's ever saved so no extra care needed there | 2 |
+
+**Recommended starting point:** E.0 then E.4 — the helper is small and unblocks
+everything else, and Log PII Alerts is the page most likely to actually get
+exported for a compliance/incident report, so it's worth doing early. Explicitly
+re-verify E.4's redaction guarantee holds through the export path (not just the
+on-screen render) before calling it done — the whole point of `masked_preview` is
+that raw values never leave the scanner, and a CSV export is a new path capable of
+being downloaded and shared, unlike a browser table.
 
 ---
 

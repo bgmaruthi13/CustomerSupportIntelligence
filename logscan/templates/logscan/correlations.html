@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Cross-Source Patterns{% endblock %}
+{% block breadcrumb %}Log Monitoring › Cross-Source Patterns{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Cross-Source Patterns</div>
+    <div class="page-subtitle">Groups recurring patterns from different Log Sources whose recent activity overlapped in time — for spotting one incident that shows up across several tools at once, instead of reading each source's Find Patterns page separately.</div>
+  </div>
+  <form method="post" action="{% url 'logscan:run_correlation' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Run Correlation</button>
+  </form>
+</div>
+
+{% if groups %}
+  {% for group in groups %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title">{{ group.overlap_start|date:"d M Y, H:i" }} – {{ group.overlap_end|date:"H:i" }}</div>
+      <div class="card-subtitle">{{ group.source_count }} sources, {{ group.window_minutes }}-minute window</div>
+    </div>
+    <div class="card-body">
+      <table class="task-table">
+        <thead><tr>
+          <th>Source</th>
+          <th>Pattern</th>
+          <th>Recurring</th>
+          <th>Time range</th>
+          <th>Example (redacted)</th>
+        </tr></thead>
+        <tbody>
+          {% for member in group.members.all %}
+          <tr>
+            <td>{{ member.cluster.source.name }}</td>
+            <td>
+              <div class="task-name">{{ member.cluster.name }}</div>
+              <div class="task-process">{{ member.cluster.keywords }}</div>
+            </td>
+            <td>{{ member.cluster.recurring_count }}</td>
+            <td>{{ member.cluster.first_line_at|date:"H:i:s" }} – {{ member.cluster.last_line_at|date:"H:i:s" }}</td>
+            <td><code style="font-size:11.5px">{{ member.cluster.example_line|truncatechars:80 }}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">
+  No cross-source correlations yet. Run Find Patterns on at least two path/upload Log Sources first (so each has clusters with parseable timestamps), then click "Run Correlation" above.
+</div>
+{% endif %}
+
+<details class="card help-block">
+  <summary>Help — How cross-source correlation works</summary>
+  <div class="help-body">
+    <p>Reuses the patterns already found by Find Patterns on each source — it doesn't re-read log files or re-cluster anything. Each pattern's time range comes from whichever of its own lines had a parseable timestamp (ISO-8601 only, e.g. <code>2026-07-20 08:12:03</code>); a pattern with no parseable line simply can't take part in correlation.</p>
+    <p>Two patterns from <strong>different</strong> sources are grouped together when their time ranges overlap within the window (10 minutes by default). If pattern A overlaps B, and B overlaps C, all three land in the same group even if A and C don't directly overlap — a spread-out incident touching several tools over a few minutes shows up as one finding rather than being split apart.</p>
+    <p>Running this replaces the previous correlation results for the whole project — it's a fresh look at the current set of patterns, not an accumulating history.</p>
+  </div>
+</details>
+
+{% endblock %}

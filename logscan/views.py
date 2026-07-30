@@ -8,7 +8,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.utils import apply_sort, get_current_project
-from logscan.models import LogPatternCluster, LogPIIFinding, LogScanJob, LogSource, SOURCE_TYPE_CHOICES, TRIGGER_MODE_CHOICES
+from logscan.correlation import correlate_project
+from logscan.models import LogPatternCluster, LogPatternCorrelation, LogPIIFinding, LogScanJob, LogSource, SOURCE_TYPE_CHOICES, TRIGGER_MODE_CHOICES
 from logscan.pattern_analysis import analyze_patterns
 from tickets.pii_detection import PII_TYPES
 
@@ -233,3 +234,37 @@ def patterns(request, pk):
     return render(request, "logscan/patterns.html", {
         "active_nav": "log-sources", "project": project, "source": source, "clusters": clusters,
     })
+
+
+@login_required
+def run_correlation(request):
+    """Triggers logscan.correlation.correlate_project synchronously — it only
+    compares timestamps already sitting on existing LogPatternCluster rows
+    (no file I/O, no re-clustering), so like find_patterns this is well
+    within one request and needs no subprocess/status-polling."""
+    project = get_current_project(request)
+    if request.method != "POST":
+        return redirect("logscan:correlations")
+    if not project:
+        return redirect("logscan:correlations")
+
+    result = correlate_project(project)
+    if result.ran:
+        messages.success(request, result.message)
+    else:
+        messages.error(request, result.message)
+    return redirect("logscan:correlations")
+
+
+@login_required
+def correlations(request):
+    project = get_current_project(request)
+    context = {"active_nav": "log-correlations", "project": project}
+    if not project:
+        return render(request, "logscan/correlations.html", context)
+
+    groups = (LogPatternCorrelation.objects.filter(project=project)
+              .prefetch_related("members__cluster__source")
+              .order_by("-overlap_start"))
+    context["groups"] = groups
+    return render(request, "logscan/correlations.html", context)

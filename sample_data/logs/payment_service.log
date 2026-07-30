@@ -1,0 +1,30 @@
+2026-07-21 14:00:02 INFO payment-service started, mode=production
+2026-07-21 14:02:15 WARN auth failed for user 4821 - invalid token
+2026-07-21 14:03:47 WARN auth failed for user 7712 - invalid token
+2026-07-21 14:05:20 INFO refund processed for order 55201, amount 42.00 USD
+2026-07-21 14:06:58 WARN auth failed for user 9981 - invalid token
+2026-07-21 14:08:31 WARN auth failed for user 1123 - invalid token
+2026-07-21 14:10:04 ERROR IBAN validation failed for GB29NWBK60161331926819 during transfer, rejected
+2026-07-21 14:11:42 WARN auth failed for user 5567 - invalid token
+2026-07-21 14:13:15 INFO refund processed for order 55214, amount 18.50 USD
+2026-07-21 14:14:49 WARN auth failed for user 3345 - invalid token
+2026-07-21 14:16:22 WARN auth failed for user 8890 - invalid token
+2026-07-21 14:18:00 ERROR settlement batch failed, retrying in 60s
+2026-07-21 14:19:37 WARN auth failed for user 2234 - invalid token
+2026-07-21 14:21:10 WARN auth failed for user 6678 - invalid token
+2026-07-21 14:22:48 INFO refund processed for order 55229, amount 9.99 USD
+2026-07-21 14:24:21 WARN auth failed for user 4499 - invalid token
+2026-07-21 14:25:59 WARN auth failed for user 1187 - invalid token
+2026-07-21 14:27:32 ERROR settlement batch failed, retrying in 60s
+2026-07-21 14:29:06 WARN auth failed for user 7723 - invalid token
+2026-07-21 14:30:44 WARN auth failed for user 9956 - invalid token
+2026-07-21 14:32:17 INFO refund processed for order 55240, amount 65.30 USD
+2026-07-21 14:33:55 WARN auth failed for user 3312 - invalid token
+2026-07-21 14:35:28 ERROR customer account lookup failed, escrow contact billing@example.com for manual reconciliation
+2026-07-21 14:37:01 WARN auth failed for user 8845 - invalid token
+2026-07-21 14:38:39 WARN auth failed for user 2267 - invalid token
+2026-07-21 14:40:12 INFO refund processed for order 55255, amount 120.00 USD
+2026-07-21 14:41:50 WARN auth failed for user 6601 - invalid token
+2026-07-21 14:43:23 ERROR settlement batch failed, retrying in 60s
+2026-07-21 14:45:01 WARN auth failed for user 4478 - invalid token
+2026-07-21 14:46:39 WARN auth failed for user 9934 - invalid token

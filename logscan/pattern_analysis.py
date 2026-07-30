@@ -34,7 +34,7 @@ from clustering.text_utils import cluster_title, top_keywords
 from tickets.pii_detection import redact_pii
 
 from logscan.models import LogPatternCluster
-from logscan.pattern_text import normalize_log_line
+from logscan.pattern_text import extract_timestamp, normalize_log_line
 from logscan.sourcefiles import source_file_label
 
 PATTERN_ANALYSIS_MAX_BYTES = 5 * 1024 * 1024  # 5MB tail read - bounded by design, not a streaming scan
@@ -152,11 +152,20 @@ def analyze_patterns(source, max_bytes=PATTERN_ANALYSIS_MAX_BYTES):
         example_idx = idx[len(idx) // 2]
         example_line = redact_pii(raw_lines[example_idx])[:1000]
 
+        # Best-effort time range for this cluster, from whichever of its own
+        # member lines have a parseable ISO-8601 timestamp — feeds
+        # logscan.correlation's cross-source overlap matching. A cluster
+        # with no parseable line simply gets no time range (both None).
+        member_timestamps = [t for t in (extract_timestamp(raw_lines[i]) for i in idx) if t is not None]
+        first_line_at = min(member_timestamps) if member_timestamps else None
+        last_line_at = max(member_timestamps) if member_timestamps else None
+
         to_create.append(LogPatternCluster(
             source=source, file_path=file_label, engine="traditional_ml",
             name=name, keywords=", ".join(keywords), example_line=example_line,
             recurring_count=len(idx), confidence=confidence, is_noise=is_noise,
             lines_analyzed=len(raw_lines),
+            first_line_at=first_line_at, last_line_at=last_line_at,
         ))
         if not is_noise:
             cluster_count += 1
