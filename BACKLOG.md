@@ -41,7 +41,7 @@ an action or see data not already surfaced elsewhere in the app.
 
 | # | Story | Pts | Status |
 |---|---|---|---|
-| A.0 | LLM bridge client foundation — `core/llm_bridge.py`: POST to the bridge, base URL configurable via env var (defaults to `http://127.0.0.1:3939`), timeout + clear "bridge unreachable" error (same honest-failure pattern the app already uses for the embedding model path, not a silent fallback) | 2 | Not started — first, everything else depends on it |
+| A.0 | LLM bridge client foundation — `core/llm_bridge.py`: POST to the bridge, base URL configurable via env var (defaults to `http://127.0.0.1:3939`), timeout + clear "bridge unreachable" error (same honest-failure pattern the app already uses for the embedding model path, not a silent fallback) | 2 | **Done** — `ask()`/`bridge_status()`. Verified against the real running bridge (happy path, empty-prompt validation) and the actual failure mode this exists to catch (unreachable bridge → clear `LLMBridgeUnavailable`, not a silent/empty result) |
 | A.1 | Cluster summaries — upgrade `Cluster.ai_summary` from the manual copy/paste flow to an automatic call through A.0, using the existing `_build_summary_prompt` | 2 | Not started |
 | A.2 | Trend explanation — same upgrade for `Cluster.ai_trend_explanation`, using the existing `_build_trend_explanation_prompt` | 2 | Not started |
 | A.3 | Project-level context in A.1/A.2's prompts — project name/domain, other active clusters in the same project (today's prompts are cluster-only, no project framing) | 1 | Not started — small addition once A.1/A.2 exist |
