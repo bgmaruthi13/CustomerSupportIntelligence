@@ -20,4 +20,5 @@ urlpatterns = [
     path("correlations/", views.correlations, name="correlations"),
     path("correlations/run/", views.run_correlation, name="run_correlation"),
     path("correlations/download/", views.correlations_download, name="correlations_download"),
+    path("correlations/<int:pk>/narrative/", views.generate_incident_narrative, name="generate_incident_narrative"),
 ]

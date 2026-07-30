@@ -266,6 +266,15 @@ class LogPatternCorrelation(models.Model):
     overlap_end = models.DateTimeField()
     source_count = models.PositiveIntegerField(default=0, help_text="How many distinct LogSources contributed a cluster to this group")
 
+    ai_incident_narrative = models.CharField(
+        max_length=1000, blank=True,
+        help_text="'What happened' story tying this correlation group's member patterns together "
+                   "across sources, generated via the Copilot HTTP Bridge (BACKLOG A.10, user-requested "
+                   "leadership-demo feature) — e.g. 'Auth service degraded, cascading into checkout "
+                   "failures downstream.' Built only from already-redacted example_line/keywords fields, "
+                   "nothing extra to sanitize here.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

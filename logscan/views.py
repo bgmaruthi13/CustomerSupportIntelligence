@@ -363,6 +363,48 @@ def correlations(request):
     return render(request, "logscan/correlations.html", context)
 
 
+def _build_incident_narrative_prompt(group):
+    """BACKLOG A.10 (user-requested leadership-demo wow factor) — turns a
+    correlation group's member patterns (each from a different LogSource,
+    overlapping in time) into ONE incident story: what happened, in what
+    order, across which services. example_line is already redact_pii()'d
+    before it was ever saved (see LogPatternCluster's own docstring), so
+    nothing extra to sanitize for this prompt."""
+    members = sorted(group.members.all(), key=lambda m: m.cluster.first_line_at or group.overlap_start)
+    lines = [
+        "The patterns below were found in DIFFERENT log sources but overlapped in "
+        "the same time window, suggesting one incident touching multiple systems. "
+        "In 2-4 sentences, tell the story of what likely happened, in time order - "
+        "which service showed trouble first and what it likely triggered downstream. "
+        "Say plainly if the patterns don't support a clear causal story.",
+        "",
+        f"Time window: {group.overlap_start:%H:%M:%S} - {group.overlap_end:%H:%M:%S} ({group.source_count} sources)",
+        "",
+        "Patterns, in time order:",
+    ]
+    for m in members:
+        c = m.cluster
+        when = c.first_line_at.strftime("%H:%M:%S") if c.first_line_at else "unknown time"
+        lines.append(f"- [{when}] {c.source.name}: {c.name} ({c.recurring_count}x) — {c.example_line}")
+    return "\n".join(lines)
+
+
+@login_required
+def generate_incident_narrative(request, pk):
+    from core.llm_bridge import LLMBridgeUnavailable, ask
+    project = get_current_project(request)
+    group = get_object_or_404(LogPatternCorrelation, id=pk, project=project)
+    if request.method != "POST":
+        return redirect("logscan:correlations")
+    try:
+        group.ai_incident_narrative = ask(_build_incident_narrative_prompt(group))[:1000]
+        group.save(update_fields=["ai_incident_narrative"])
+        messages.success(request, "Incident narrative generated via the Copilot HTTP Bridge.")
+    except LLMBridgeUnavailable as exc:
+        messages.error(request, f"Couldn't generate a narrative: {exc}")
+    return redirect("logscan:correlations")
+
+
 @login_required
 def correlations_download(request):
     """CSV of every cross-source correlation group, flattened to one row per
