@@ -8,66 +8,61 @@ on top of the existing platform, so pick items independently based on priority.
 
 ---
 
-## Theme A — Generative AI capabilities
+## Theme A — Generative AI capabilities (reset 2026-07-30 — implementation starting)
 
 *Everything currently labeled "AI" in the app (the "Generative AI" clustering engine,
 Smart Search, Find Similar) is embeddings — semantic search/clustering via
-sentence-transformers, not text generation. There is no LLM API call anywhere in the
-codebase. No LLM API key is available in this environment — A.1 and A.4 below were
-implemented via the existing copy/paste bridge pattern instead (build a prompt
-server-side → user pastes into their own Copilot chat → pastes the answer back to
-save it), same mechanism `resolution_notes`/`_build_copilot_prompt` already used. A.2,
-A.3, and A.5 don't fit that pattern (A.2 is already effectively covered by the
-existing Resolution card; A.3/A.5 need to run unattended, which the copy/paste bridge
-can't do) — they still need either a real LLM API key or a callable proxy like GitHub
-Models before they're buildable.*
+sentence-transformers, not text generation. There was no LLM API call anywhere in
+the codebase, and A.1/A.4-equivalent features below were done via a manual copy/paste
+bridge (build a prompt server-side → user pastes into their own Copilot chat → pastes
+the answer back to save it) — that blocker is now resolved.*
+
+**Provider: `copilot-http-bridge`** (`C:\Users\user\Documents\GitHub\bgmaruthi13\copilot-http-bridge`)
+— a small VS Code extension exposing the user's signed-in GitHub Copilot chat model
+over plain HTTP (`POST /ask {"prompt": "..."}` → `{"reply": "..."}`) while its
+Extension Development Host window is running. Confirmed live 2026-07-30 —
+`curl -X POST http://127.0.0.1:3939/ask -d '{"prompt": "reply with exactly the word:
+pong"}'` returned `{"reply":"pong"}`, HTTP 200. Loopback-only is the right mode here —
+the Django dev server runs on the same machine.
+
+Real caveats, still true, worth re-reading before scaling this beyond prototyping:
+no authentication on the bridge itself; only live while that VS Code window stays
+open, not an always-on service; a Copilot seat is licensed as a coding assistant
+inside an IDE, and routing arbitrary app traffic through it programmatically is a
+different use case worth checking against license terms before real usage volume;
+one seat won't hold up under multi-user production traffic the way a paid API tier
+would. Treat this as the prototyping path to prove out value cheaply, not the
+assumed-permanent production answer.
+
+Every story below is the same shape: assemble structured context already in the DB →
+one prompt via the bridge → a short piece of generated text → stored on a field,
+shown in the UI. All read-only narrative generation — nothing here has the LLM take
+an action or see data not already surfaced elsewhere in the app.
 
 | # | Story | Pts | Status |
 |---|---|---|---|
-| A.0 | LLM API integration foundation (client wiring, config/API key handling, error/timeout handling, cost guardrails) | 3 | Not started — no API key available |
-| A.1 | Auto-generated cluster summaries — one-line plain-English problem statement, stored on `Cluster.ai_summary` | 3 | **Done** — copy/paste bridge (Copy Prompt → paste into Copilot → save), shown on cluster list + detail |
-| A.2 | AI-drafted root cause + resolution | 5 | Already covered — pre-existing Resolution card (`resolution_notes`/`copilot_assisted`) is this same pattern |
-| A.3 | Smart Search synthesis step (RAG answer, not just retrieval) | 5 | Not started — needs an LLM API (unattended, doesn't fit copy/paste) |
-| A.4 | Trend/anomaly explanation — hypothesis for *why* a cluster is rising/falling, stored on `Cluster.ai_trend_explanation` | 3 | **Done** — same copy/paste bridge, sample is the cluster's most-recent tickets; hidden when trend is "stable" |
-| A.5 | Executive brief narrative generation | 2 | Not started — needs an LLM API + Theme B's KPI snapshot first |
-| A.6 | Upgrade A.1/A.4 from the copy/paste bridge to a real, automatic API call, and extend `_build_copilot_prompt`/`_build_summary_prompt` with project-level context (project name/domain, other active clusters in the same project) — today's prompts are cluster-only, no project framing | 3 | Not started — blocked on A.0 + a provider decision |
+| A.0 | LLM bridge client foundation — `core/llm_bridge.py`: POST to the bridge, base URL configurable via env var (defaults to `http://127.0.0.1:3939`), timeout + clear "bridge unreachable" error (same honest-failure pattern the app already uses for the embedding model path, not a silent fallback) | 2 | Not started — first, everything else depends on it |
+| A.1 | Cluster summaries — upgrade `Cluster.ai_summary` from the manual copy/paste flow to an automatic call through A.0, using the existing `_build_summary_prompt` | 2 | Not started |
+| A.2 | Trend explanation — same upgrade for `Cluster.ai_trend_explanation`, using the existing `_build_trend_explanation_prompt` | 2 | Not started |
+| A.3 | Project-level context in A.1/A.2's prompts — project name/domain, other active clusters in the same project (today's prompts are cluster-only, no project framing) | 1 | Not started — small addition once A.1/A.2 exist |
+| A.4 | Root cause + resolution draft — automatic call through A.0 to pre-fill the existing Resolution card (`resolution_notes`), still fully editable/overridable — a starting draft, not a replacement for analyst judgment | 2 | Not started |
+| A.5 | Duplicate-pair explanation — one sentence on *why* a flagged pair on the Duplicate Candidates page (E.3) looks like a duplicate, beyond just the similarity %, to help a reviewer decide Confirm vs. Not a Duplicate | 1 | Not started |
+| A.6 | Log pattern narrative (logscan) — turn a Find Patterns cluster's keywords/example line into a plain-English "what's likely happening" sentence, same summarization idea as A.1 applied to log clusters instead of ticket clusters | 2 | Not started |
+| A.7 | Smart Search synthesis — one synthesized answer above the retrieved ticket list (classic RAG: read the top 5-10 results, write a synthesized answer), not just a ranked list | 3 | Not started |
+| A.8 | Executive brief narrative generation | 2 | Not started — still blocked on Theme B's KPISnapshot (B.2), independent of the LLM provider question |
 
-**Next up:** A.0 (LLM API integration) is the blocker for A.3/A.5/A.6 — see the
-conversation note above on GitHub Models as a callable option that doesn't need a
-separate Anthropic/OpenAI subscription.
+**Recommended build order:** A.0 (foundation) → A.1/A.2 (cheapest possible proof the
+bridge works in real product code, since the prompts already exist and just need a
+real call instead of copy/paste) → A.3 (small follow-on) → A.5/A.6 (same pattern,
+new surfaces, still small) → A.4 (needs care: pre-filling a field a human then edits
+is a different UX than read-only narrative text) → A.7 (the biggest one — new
+retrieval+synthesis logic, not just automating an existing prompt) → A.8 (blocked
+on B.2 regardless of provider).
 
-**Provider update (2026-07-30, not yet implemented — logged for when we build A.0):**
-Found a working alternative to GitHub Models: `copilot-http-bridge`
-(`C:\Users\user\Documents\GitHub\bgmaruthi13\copilot-http-bridge`), a small VS
-Code extension that exposes the user's signed-in GitHub Copilot chat model over
-plain HTTP (`POST /ask {"prompt": "..."}` → `{"reply": "..."}`) while its
-Extension Development Host window is running. Confirmed live and working
-2026-07-30 — `curl -X POST http://127.0.0.1:3939/ask -d '{"prompt": "reply with
-exactly the word: pong"}'` returned `{"reply":"pong"}`, HTTP 200. Running on
-`127.0.0.1` (not a LAN IP) is actually the right mode for this project — the
-Django dev server is on the same machine, so no network exposure is needed.
-
-Real caveats to weigh before treating this as more than a prototyping bridge:
-no authentication on the bridge itself (its own README says so — binding to a
-LAN IP instead of loopback would make it reachable by anything else on that
-network); only live while that specific VS Code window stays open on whoever's
-machine is running it, not an always-on service; a Copilot seat is licensed as
-a coding-assistant-in-an-IDE, and routing arbitrary app traffic through it
-programmatically is a different use case worth checking against license terms
-before any real usage volume; one developer's seat won't hold up under
-multi-user production traffic the way a paid API tier would.
-
-**Proposed plan (agreed with user, not yet built):** use this bridge to
-prototype A.0 cheaply — a small `core/llm_bridge.py` client (configurable base
-URL via env var, clear "bridge unreachable" error, same honest-failure pattern
-the app already uses for the embedding model path) — then wire it into **A.6**
-first (lowest-risk: on-demand, one user at a time) and **A.3** second (Smart
-Search synthesis). Prove out real value at zero cost before deciding whether
-anything needs to graduate to a paid API for reliability beyond personal
-testing.
-
-**Provider decision (user-requested research, 2026-07-24, not yet decided):**
-Azure OpenAI needs no special "AI license" beyond a normal Azure subscription plus
+**Fallback provider research (2026-07-24) — superseded by the `copilot-http-bridge`
+decision above for now, kept here for if/when this needs to graduate to a paid API**
+(e.g. the bridge's caveats become a real problem, or multi-user reliability is
+needed): Azure OpenAI needs no special "AI license" beyond a normal Azure subscription plus
 an Azure OpenAI resource provisioned in-portal (regional/model access gating has
 loosened over time but should be re-checked live, not assumed from memory) — it's
 consumption-based, billed per token, not a seat license. For a solo/small-team
