@@ -59,6 +59,7 @@
         <th>Engine</th>
         <th>{% sort_header "trend" "Trend" %}</th>
         <th>{% sort_header "confidence" "Confidence" %}</th>
+        {% if show_cost_col %}<th title="Trailing 90-day run-rate, not a prediction">Est. Cost/Qtr</th>{% endif %}
         <th></th>
       </tr></thead>
       <tbody>
@@ -80,6 +81,7 @@
             {% else %}<span class="trend-flat" title="{{ c.trend_reasoning }}">● Stable</span>{% endif %}
           </td>
           <td><div class="conf-bar-wrap"><div class="conf-bar"><div class="conf-bar-fill" style="width:{{ c.confidence }}%;background:{{ c.color }}"></div></div><span>{{ c.confidence|floatformat:0 }}%</span></div></td>
+          {% if show_cost_col %}<td>{% if c.estimated_quarterly_cost %}<span style="font-weight:600">{{ cost_currency_symbol }}{{ c.estimated_quarterly_cost|floatformat:0 }}</span>{% else %}—{% endif %}</td>{% endif %}
           <td><a href="{% url 'clustering:detail' c.id %}" class="btn btn-outline" style="padding:4px 12px;font-size:12px">Open →</a></td>
         </tr>
         {% endfor %}

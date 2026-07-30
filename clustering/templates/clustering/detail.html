@@ -18,6 +18,11 @@
     {% endif %}
     <div class="page-title" style="margin-top:6px">{{ cluster.name }}{% if cluster.is_problem_candidate %} <span class="problem-ribbon">Problem Candidate</span>{% endif %}{% if cluster.parent %} <span class="badge badge-grey">Sub-cluster</span>{% endif %}</div>
     <div class="page-subtitle">{{ project.name }} · {{ cluster.get_engine_display }} · {{ cluster.recurring_count }} recurring tickets{% if cluster.source_description %} · from {{ cluster.source_description }}{% endif %}</div>
+    {% if estimated_quarterly_cost %}
+    <div style="font-size:13px;color:var(--text-primary);font-weight:600;margin-top:6px" title="Trailing 90-day run-rate — cost per ticket × tickets seen in the last 90 days, scaled to a quarter. Not a prediction.">
+      ~{{ cost_currency_symbol }}{{ estimated_quarterly_cost|floatformat:0 }}/quarter at the current rate if left unaddressed
+    </div>
+    {% endif %}
     {% if cluster.ai_summary %}<div style="font-size:13px;color:var(--text-primary);font-style:italic;margin-top:6px">"{{ cluster.ai_summary }}"</div>{% endif %}
   </div>
   {% if can_drill_down %}

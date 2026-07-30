@@ -83,6 +83,31 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Cost Impact</div>
+      <div class="card-subtitle">Optional — set a per-ticket cost to show estimated dollar impact on Problem Clusters, cluster detail, and the dashboard</div>
+    </div>
+  </div>
+  <div class="card-body pad">
+    <form method="post" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_cost">
+      <div class="form-field" style="margin-bottom:0">
+        <label style="font-size:11px">Cost per ticket</label>
+        <input type="number" name="cost_per_ticket" value="{{ project.cost_per_ticket }}" min="0" step="0.01" style="width:140px">
+      </div>
+      <div class="form-field" style="margin-bottom:0">
+        <label style="font-size:11px">Currency symbol</label>
+        <input type="text" name="cost_currency_symbol" value="{{ project.cost_currency_symbol }}" maxlength="5" style="width:80px">
+      </div>
+      <button type="submit" class="btn btn-primary">Save Cost Impact</button>
+    </form>
+    <p style="font-size:12px;color:var(--text-secondary);margin:12px 0 0">Left at 0, no dollar figures show anywhere — this is entirely opt-in. Once set, every dollar figure is a trailing 90-day run-rate ("at the current rate, this cluster is costing ~{{ project.cost_currency_symbol|default:"$" }}X per quarter"), not a prediction — an honest extrapolation of tickets actually seen recently, not a forecast.</p>
+  </div>
+</div>
+
 <script>
   (function () {
     var sizeEl = document.getElementById('confWeightSize');

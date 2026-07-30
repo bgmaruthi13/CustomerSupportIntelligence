@@ -1,12 +1,13 @@
 import re
 from collections import Counter
+from datetime import timedelta
 
 import numpy as np
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models.functions import TruncMonth, TruncWeek
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -20,6 +21,7 @@ from clustering.pipelines import (DEFAULT_GRANULARITY, MIN_TICKETS_TO_CLUSTER,
                                    embedding_model_status, run_generative_ai,
                                    run_global_clustering, run_traditional_ml,
                                    scan_for_duplicates)
+from clustering.scoring import estimate_quarterly_cost
 from clustering.settings_utils import default_settings_for
 from clustering.settings_utils import get_or_default as get_clustering_settings
 from clustering.text_utils import build_clustering_text, build_entity_stoplist
@@ -43,6 +45,30 @@ CLUSTERS_SORT_FIELDS = {
     "created": "created_at",
 }
 
+COST_WINDOW_DAYS = 90
+
+
+def annotate_recent_ticket_count(queryset, window_days=COST_WINDOW_DAYS):
+    """Attaches recent_ticket_count (members whose ticket was created within
+    the trailing window) via one annotated query rather than one COUNT query
+    per cluster - the queryset this runs against is usually a page of ≤25
+    clusters, but there's no reason to pay N+1 for something a single
+    annotation covers just as easily."""
+    cutoff = timezone.now() - timedelta(days=window_days)
+    return queryset.annotate(recent_ticket_count=Count("members", filter=Q(members__ticket__created_at__gte=cutoff)))
+
+
+def attach_cost_impact(clusters, project):
+    """Sets .estimated_quarterly_cost on each cluster (already annotated with
+    recent_ticket_count) - None when project.cost_per_ticket isn't configured,
+    which templates treat as "don't show a dollar figure" (see
+    estimate_quarterly_cost's own docstring for why None, not $0)."""
+    for c in clusters:
+        c.estimated_quarterly_cost = estimate_quarterly_cost(
+            getattr(c, "recent_ticket_count", 0), project.cost_per_ticket, COST_WINDOW_DAYS,
+        )
+    return clusters
+
 
 @login_required
 def clusters_list(request):
@@ -58,10 +84,14 @@ def clusters_list(request):
     if engine in ("traditional_ml", "generative_ai"):
         qs = qs.filter(engine=engine)
     qs = qs.annotate(sub_cluster_count=Count("sub_clusters"))
+    if project.cost_per_ticket:
+        qs = annotate_recent_ticket_count(qs)
     qs = apply_sort(request, qs, CLUSTERS_SORT_FIELDS, default_field="recurring", default_dir="desc")
 
     paginator = Paginator(qs, CLUSTERS_PER_PAGE)
     page_obj = paginator.get_page(request.GET.get("page"))
+    if project.cost_per_ticket:
+        attach_cost_impact(page_obj, project)
 
     ml_last = Cluster.objects.filter(project=project, engine="traditional_ml", parent__isnull=True).order_by("-created_at").first()
     genai_last = Cluster.objects.filter(project=project, engine="generative_ai", parent__isnull=True).order_by("-created_at").first()
@@ -82,6 +112,8 @@ def clusters_list(request):
         "show_application_col": qs.exclude(top_application="Unspecified").exists(),
         "show_offering_col": qs.exclude(top_offering="Unspecified").exists(),
         "show_country_col": qs.exclude(top_country="Unspecified").exists(),
+        "show_cost_col": bool(project.cost_per_ticket),
+        "cost_currency_symbol": project.cost_currency_symbol,
     })
     return render(request, "clustering/list.html", context)
 
@@ -315,6 +347,13 @@ def cluster_detail(request, pk):
         ),
         "can_drill_down": cluster.recurring_count >= MIN_TICKETS_TO_CLUSTER,
         "granularity_choices": GRANULARITY_CHOICES,
+        "estimated_quarterly_cost": (
+            estimate_quarterly_cost(
+                tickets_qs.filter(created_at__gte=timezone.now() - timedelta(days=COST_WINDOW_DAYS)).count(),
+                project.cost_per_ticket, COST_WINDOW_DAYS,
+            ) if project.cost_per_ticket else None
+        ),
+        "cost_currency_symbol": project.cost_currency_symbol,
     }
     return render(request, "clustering/detail.html", context)
 
@@ -1313,6 +1352,20 @@ def clustering_settings(request):
                     messages.success(request, "Saved Confidence Scoring settings. Nothing re-runs automatically — the next pipeline run for either engine will use the new weights.")
             except (TypeError, ValueError):
                 messages.error(request, "Confidence Scoring values must be numbers — settings not saved.")
+            return redirect(f"{reverse('clustering:settings')}?tab={tab}")
+        if action == "save_cost":
+            try:
+                cost = max(0.0, float(request.POST.get("cost_per_ticket", 0) or 0))
+                symbol = request.POST.get("cost_currency_symbol", "$").strip()[:5] or "$"
+                project.cost_per_ticket = cost
+                project.cost_currency_symbol = symbol
+                project.save(update_fields=["cost_per_ticket", "cost_currency_symbol"])
+                if cost:
+                    messages.success(request, f"Saved Cost Impact settings — dollar-impact figures now show across Problem Clusters, cluster detail, and the dashboard.")
+                else:
+                    messages.success(request, "Cost per ticket cleared — dollar-impact figures are hidden until it's set again.")
+            except (TypeError, ValueError):
+                messages.error(request, "Cost per ticket must be a number — settings not saved.")
             return redirect(f"{reverse('clustering:settings')}?tab={tab}")
         if engine in ("traditional_ml", "generative_ai"):
             tab = engine

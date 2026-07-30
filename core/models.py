@@ -59,6 +59,13 @@ class Project(models.Model):
     confidence_floor = models.PositiveSmallIntegerField(default=30, help_text="Minimum possible confidence score — even the weakest real cluster shows at least this")
     confidence_cap = models.PositiveSmallIntegerField(default=97, help_text="Maximum possible confidence score — never a false-sounding 100%")
 
+    # --- Cost impact framing (BACKLOG Theme B.1) — display-layer only, no
+    # pipeline change. 0 means "not configured": every dollar-impact number
+    # this drives is hidden rather than shown as a misleading $0, since a
+    # genuinely free ticket is not the common case a blank setting represents.
+    cost_per_ticket = models.FloatField(default=0.0, help_text="Estimated fully-loaded cost to handle one ticket in this project (agent time, tooling, etc.) — 0 hides all dollar-impact figures")
+    cost_currency_symbol = models.CharField(max_length=5, default="$", blank=True, help_text="Prefix shown before every dollar-impact figure, e.g. '$', '€', '£'")
+
     class Meta:
         ordering = ["-created_at"]
 

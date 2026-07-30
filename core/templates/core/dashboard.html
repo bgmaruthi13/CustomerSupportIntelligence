@@ -36,6 +36,13 @@
     <div class="kpi-value">{{ problem_candidates }}</div>
     <div class="kpi-trend">Rising / high-confidence</div>
   </div>
+  {% if total_quarterly_cost is not None %}
+  <div class="kpi-card green">
+    <div class="kpi-label">Est. Cost of Unaddressed Problems <span class="info-dot" data-tip="Sum of each Problem Candidate cluster's trailing 90-day run-rate cost (tickets seen in the last 90 days × your configured cost per ticket, scaled to a quarter) — not a prediction, an extrapolation of recent activity. Configure cost per ticket in Clustering Settings." tabindex="0">i</span></div>
+    <div class="kpi-value">{{ cost_currency_symbol }}{{ total_quarterly_cost|floatformat:0 }}</div>
+    <div class="kpi-trend">Per quarter, at current rate</div>
+  </div>
+  {% endif %}
 </div>
 
 <div class="dashboard-grid">

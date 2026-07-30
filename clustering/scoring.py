@@ -116,6 +116,23 @@ def most_common_multi(value_lists, default="Unspecified"):
     return Counter(exploded).most_common(1)[0][0]
 
 
+def estimate_quarterly_cost(recent_ticket_count, cost_per_ticket, window_days=90):
+    """Dollar-impact projection for a management-facing view (BACKLOG B.1):
+    cost_per_ticket * tickets seen in the trailing window, scaled to a
+    90-day quarter when window_days differs. Deliberately a trailing run-rate
+    ("at the current rate, this is costing ~$X per quarter"), not a
+    speculative future forecast — an honest extrapolation of already-observed
+    recent activity, not a prediction.
+
+    Returns None when cost_per_ticket is falsy (0/unset) - callers should
+    treat None as "don't show a dollar figure" rather than "$0", since an
+    unset project setting is far more likely than a genuinely free ticket."""
+    if not cost_per_ticket:
+        return None
+    scaled_count = recent_ticket_count * (90 / window_days) if window_days != 90 else recent_ticket_count
+    return round(cost_per_ticket * scaled_count)
+
+
 def recency_fraction(dates, window_days=90):
     if not dates:
         return 0.0

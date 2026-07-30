@@ -43,6 +43,20 @@ def dashboard(request):
     clusters = clusters_qs[:8]
     problem_candidates = Cluster.objects.filter(project=project, is_problem_candidate=True, parent__isnull=True).count()
 
+    # Aggregate dollar-impact KPI (BACKLOG B.1) — summed across problem
+    # candidates specifically, not every cluster: this is meant to answer
+    # "what's the cost of the recurring issues we haven't addressed", and a
+    # stable/already-understood cluster isn't part of that story.
+    total_quarterly_cost = None
+    if project.cost_per_ticket:
+        from clustering.views import annotate_recent_ticket_count, COST_WINDOW_DAYS
+        from clustering.scoring import estimate_quarterly_cost
+        problem_qs = annotate_recent_ticket_count(
+            Cluster.objects.filter(project=project, is_problem_candidate=True, parent__isnull=True)
+        )
+        recent_total = sum(c.recent_ticket_count for c in problem_qs)
+        total_quarterly_cost = estimate_quarterly_cost(recent_total, project.cost_per_ticket, COST_WINDOW_DAYS)
+
     context.update({
         "project": project,
         "ticket_count": project.ticket_count,
@@ -53,6 +67,8 @@ def dashboard(request):
         "clusters": clusters,
         "classify_text_input": classify_text_input,
         "classify_result": classify_result,
+        "total_quarterly_cost": total_quarterly_cost,
+        "cost_currency_symbol": project.cost_currency_symbol,
     })
     return render(request, "core/dashboard.html", context)
 
