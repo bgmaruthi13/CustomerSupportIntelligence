@@ -54,8 +54,11 @@
 
 <div class="card">
   <div class="card-header">
-    <div class="card-title">Findings</div>
-    <div class="card-subtitle">{{ total_count }} total</div>
+    <div>
+      <div class="card-title">Findings</div>
+      <div class="card-subtitle">{{ total_count }} total</div>
+    </div>
+    <a class="btn btn-outline" href="{% url 'logscan:findings_download' %}?type={{ type_filter }}&confidence={{ confidence_filter }}&source={{ source_filter }}">Download CSV</a>
   </div>
   <div class="card-body">
     <table class="task-table">

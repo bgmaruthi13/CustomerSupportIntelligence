@@ -14,6 +14,7 @@ urlpatterns = [
     path("jobs/<int:pk>/", views.job_detail, name="job_detail"),
     path("jobs/<int:pk>/status/", views.job_status_json, name="job_status_json"),
     path("findings/", views.findings_report, name="findings_report"),
+    path("findings/download/", views.findings_download, name="findings_download"),
     path("correlations/", views.correlations, name="correlations"),
     path("correlations/run/", views.run_correlation, name="run_correlation"),
 ]

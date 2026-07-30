@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from core.export import csv_response
 from core.utils import apply_sort, get_current_project
 from logscan.correlation import correlate_project
 from logscan.models import LogPatternCluster, LogPatternCorrelation, LogPIIFinding, LogScanJob, LogSource, SOURCE_TYPE_CHOICES, TRIGGER_MODE_CHOICES
@@ -162,6 +163,24 @@ def jobs_list(request):
     return render(request, "logscan/jobs.html", context)
 
 
+def _filtered_findings(request, project):
+    """Shared by findings_report (paginated HTML) and findings_download (full
+    CSV) so the two can never drift apart on what "the current filter" means —
+    a download that silently applied different filters than what's on screen
+    would be a worse bug than not having a download at all."""
+    findings = LogPIIFinding.objects.filter(source__project=project).select_related("source", "job")
+    type_filter = request.GET.get("type", "")
+    confidence_filter = request.GET.get("confidence", "")
+    source_filter = request.GET.get("source", "")
+    if type_filter:
+        findings = findings.filter(pii_type=type_filter)
+    if confidence_filter:
+        findings = findings.filter(confidence=confidence_filter)
+    if source_filter:
+        findings = findings.filter(source_id=source_filter)
+    return findings, type_filter, confidence_filter, source_filter
+
+
 @login_required
 def findings_report(request):
     """Standalone report across every LogSource in the project — same shape as
@@ -173,17 +192,7 @@ def findings_report(request):
     if not project:
         return render(request, "logscan/findings.html", context)
 
-    findings = LogPIIFinding.objects.filter(source__project=project).select_related("source", "job")
-
-    type_filter = request.GET.get("type", "")
-    confidence_filter = request.GET.get("confidence", "")
-    source_filter = request.GET.get("source", "")
-    if type_filter:
-        findings = findings.filter(pii_type=type_filter)
-    if confidence_filter:
-        findings = findings.filter(confidence=confidence_filter)
-    if source_filter:
-        findings = findings.filter(source_id=source_filter)
+    findings, type_filter, confidence_filter, source_filter = _filtered_findings(request, project)
 
     total_count = findings.count()
     findings = apply_sort(request, findings, FINDINGS_SORT_FIELDS, default_field="detected", default_dir="desc")
@@ -201,6 +210,34 @@ def findings_report(request):
         "source_filter": source_filter,
     })
     return render(request, "logscan/findings.html", context)
+
+
+@login_required
+def findings_download(request):
+    """CSV export of the currently-filtered Log PII Alerts view. Exports the
+    exact same fields the page itself shows — pii_type, confidence,
+    masked_preview, source, file_path, line_number, detected_at — and nothing
+    else; masked_preview is what LogPIIFinding stores, the raw matched value
+    was never persisted anywhere in this app to begin with (see the model's
+    own docstring), so there is no raw value this export could leak even by
+    mistake."""
+    project = get_current_project(request)
+    if not project:
+        return redirect("logscan:findings_report")
+
+    findings, _type_filter, _confidence_filter, _source_filter = _filtered_findings(request, project)
+    findings = findings.order_by("-detected_at")
+
+    rows = (
+        (f.get_pii_type_display(), f.get_confidence_display(), f.masked_preview,
+         f.source.name, f.file_path, f.line_number, f.detected_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for f in findings.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Type", "Confidence", "Masked Preview", "Source", "File", "Line", "Detected At"],
+        filename=f"log_pii_alerts_project{project.id}",
+    )
 
 
 @login_required
