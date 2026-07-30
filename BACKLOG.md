@@ -139,14 +139,14 @@ findings outside the app — pasting into a spreadsheet, attaching to an inciden
 ticket, feeding a management report — has no way to get the data out except
 copy-pasting the rendered table.*
 
-| # | Story | Pts |
-|---|---|---|
-| E.0 | Shared CSV export helper (e.g. `core/export.py::csv_response(rows, headers, filename)`) — one utility every page's download button calls, instead of N one-off `HttpResponse`/`csv.writer` implementations | 2 |
-| E.1 | Download on Problem Clusters (`clustering/list.html`, `detail.html`) — cluster summary CSV (name, keywords, recurring_count, confidence, trend) and a per-cluster CSV of its member tickets | 3 |
-| E.2 | Download on Global Clustering (`global_clustering.html`, `global_cluster_detail.html`) — same shape as E.1, across-project | 2 |
-| E.3 | Download on Duplicate Candidates (`duplicates.html`) — candidate pairs + status/reviewed_by | 1 |
-| E.4 | Download on Log PII Alerts (`logscan/findings.html`) — **masked previews only, never the raw matched value**, same guarantee the page and `LogPIIFinding` model already enforce; this is a redaction-preserving export, not a new exposure surface | 2 |
-| E.5 | Download on Log Patterns + Cross-Source Patterns (`logscan/patterns.html`, `correlations.html`) — cluster/correlation summary rows, `example_line` already redacted before it's ever saved so no extra care needed there | 2 |
+| # | Story | Pts | Status |
+|---|---|---|---|
+| E.0 | Shared CSV export helper (e.g. `core/export.py::csv_response(rows, headers, filename)`) — one utility every page's download button calls, instead of N one-off `HttpResponse`/`csv.writer` implementations | 2 | **Done** — verified via standalone script: correct headers, comma/quote escaping (RFC4180 via `csv.writer`), empty-rows handling |
+| E.1 | Download on Problem Clusters (`clustering/list.html`, `detail.html`) — cluster summary CSV (name, keywords, recurring_count, confidence, trend) and a per-cluster CSV of its member tickets | 3 | Not started |
+| E.2 | Download on Global Clustering (`global_clustering.html`, `global_cluster_detail.html`) — same shape as E.1, across-project | 2 | Not started |
+| E.3 | Download on Duplicate Candidates (`duplicates.html`) — candidate pairs + status/reviewed_by | 1 | Not started |
+| E.4 | Download on Log PII Alerts (`logscan/findings.html`) — **masked previews only, never the raw matched value**, same guarantee the page and `LogPIIFinding` model already enforce; this is a redaction-preserving export, not a new exposure surface | 2 | Not started — blocked on nothing, next up |
+| E.5 | Download on Log Patterns + Cross-Source Patterns (`logscan/patterns.html`, `correlations.html`) — cluster/correlation summary rows, `example_line` already redacted before it's ever saved so no extra care needed there | 2 | Not started |
 
 **Recommended starting point:** E.0 then E.4 — the helper is small and unblocks
 everything else, and Log PII Alerts is the page most likely to actually get
