@@ -11,7 +11,7 @@
     <div class="page-subtitle">{{ source_ticket.title }}</div>
     {% else %}
     <div class="page-title">Smart Search — {{ project.name }}</div>
-    <div class="page-subtitle">Semantic search over your tickets — finds matches by meaning, not just shared keywords. Retrieval only, not an AI-generated answer.</div>
+    <div class="page-subtitle">Semantic search over your tickets — finds matches by meaning, not just shared keywords. Retrieval by default; optionally synthesize a written answer from the results via the Copilot Bridge.</div>
     {% endif %}
   </div>
 </div>
@@ -81,8 +81,20 @@
   {% if query or source_ticket %}
     {% if results %}
     <div class="card" style="margin-bottom:20px">
-      <div class="card-body pad" style="font-size:13px;color:var(--text-primary)">{{ summary }}</div>
+      <div class="card-body pad" style="font-size:13px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <span>{{ summary }}</span>
+        {% if not synthesis %}
+        <a class="btn btn-violet btn-ai-generate" style="padding:6px 14px;font-size:12px;flex:0 0 auto" href="?q={{ query|urlencode }}&synthesize=1">✨ Synthesize with Copilot Bridge</a>
+        {% endif %}
+      </div>
     </div>
+
+    {% if synthesis %}
+    <div class="ai-generated-panel" style="margin-bottom:20px">
+      <div class="ai-generated-label">✨ Synthesized via Copilot Bridge — based on the {{ results|length }} matching ticket{{ results|length|pluralize }} below, not a guarantee</div>
+      <div style="font-size:13px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6">{{ synthesis }}</div>
+    </div>
+    {% endif %}
 
     <div class="card">
       <div class="card-header"><div class="card-title">Matching Tickets</div></div>
@@ -126,7 +138,7 @@
 <details class="card help-block">
   <summary>Help — How does Smart Search work?</summary>
   <div class="help-body">
-    <p>Your query is embedded with the same local sentence-embedding model used by the Generative AI clustering pipeline, then ranked against every ticket's stored embedding by cosine similarity — the same technique behind semantic search. <strong>This is retrieval, not generation</strong>: results are ranked existing tickets, not an AI-written answer, and nothing is sent to an external API.</p>
+    <p>Your query is embedded with the same local sentence-embedding model used by the Generative AI clustering pipeline, then ranked against every ticket's stored embedding by cosine similarity — the same technique behind semantic search. <strong>Retrieval itself is local</strong>: results are ranked existing tickets, nothing sent anywhere, whether or not you ever click Synthesize. Only clicking "Synthesize with Copilot Bridge" sends the retrieved tickets' titles (and any existing resolution notes) to your local Copilot HTTP Bridge to write a short answer — an explicit, separate step, never automatic.</p>
     <p>Tickets that have an embedding but aren't currently in a Generative AI cluster show as "Not yet clustered" rather than being hidden from results.</p>
   </div>
 </details>

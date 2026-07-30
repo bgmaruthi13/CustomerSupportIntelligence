@@ -713,6 +713,29 @@ def _rank_by_vector(project, query_vec, top_k=SEARCH_RESULTS_LIMIT, exclude_tick
     return results, summary
 
 
+def _build_search_synthesis_prompt(query, results):
+    """BACKLOG A.7 — classic RAG: read the top retrieved tickets, write ONE
+    synthesized answer instead of leaving the user to read a ranked list
+    themselves. Includes each result's cluster resolution_notes when its
+    cluster has one (the same real-world fix history A.4 drafts into,
+    now surfaced back out at search time) — that's the single highest-value
+    piece of context a synthesis can draw on, when it exists."""
+    lines = [
+        f'A user searched "{query}" against a ticket history. Based ONLY on the '
+        "tickets below, write a short synthesized answer (2-4 sentences): what this "
+        "is typically caused by and how it's typically resolved, if the tickets "
+        "support that — say so plainly if they don't give enough to conclude anything.",
+        "",
+        "Matching tickets (most similar first):",
+    ]
+    for r in results[:8]:
+        line = f"- {r['ticket'].title} ({r['similarity']}% match)"
+        if r["cluster"] and r["cluster"].resolution_notes:
+            line += f" — known resolution: {r['cluster'].resolution_notes[:200]}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 SEARCH_RESULTS_SORT_KEYS = {
     "similarity": lambda r: r["similarity"],
     "title": lambda r: r["ticket"].title,
@@ -927,10 +950,19 @@ def search(request):
         if results:
             results = _sort_search_results(request, results)
 
+    synthesis = None
+    if results and request.GET.get("synthesize") == "1":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        try:
+            synthesis = ask(_build_search_synthesis_prompt(query, results))
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a synthesized answer: {exc}")
+
     context.update({
         "query": query,
         "results": results,
         "summary": summary,
+        "synthesis": synthesis,
         "total_indexed": total_indexed,
         "total_tickets": total_tickets,
         "needs_index": total_indexed == 0,
