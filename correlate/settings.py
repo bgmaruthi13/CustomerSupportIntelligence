@@ -91,8 +91,11 @@ WSGI_APPLICATION = 'correlate.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Zero-config default: SQLite (fine for a single-machine / pilot deployment).
-# Set DATABASE_URL (e.g. postgres://user:pass@host:5432/dbname) to use Postgres instead.
+# Postgres (via DATABASE_URL, e.g. postgres://user:pass@host:5432/dbname) is the
+# recommended/primary database for any real deployment — see .env.example and
+# deploy/redhat/install.sh, which sets it up automatically. Falls back to a
+# zero-config SQLite file when DATABASE_URL is unset, which stays fine for local
+# dev or a single-machine pilot but isn't safe for concurrent writers.
 
 DATABASES = {
     'default': dj_database_url.config(

@@ -1,0 +1,20 @@
+[Unit]
+Description=Correlate AI (waitress)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+# Replace /opt/correlate-ai below with wherever you deployed the app, and
+# correlate with whichever unprivileged Linux user should own the process
+# (create one with: sudo useradd -r -s /sbin/nologin correlate).
+User=correlate
+Group=correlate
+WorkingDirectory=/opt/correlate-ai
+Environment=WAITRESS_HOST=127.0.0.1
+Environment=WAITRESS_PORT=8000
+ExecStart=/opt/correlate-ai/venv/bin/python /opt/correlate-ai/deploy/windows/serve.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
