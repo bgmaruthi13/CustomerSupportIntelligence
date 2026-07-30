@@ -36,6 +36,36 @@ Models before they're buildable.*
 conversation note above on GitHub Models as a callable option that doesn't need a
 separate Anthropic/OpenAI subscription.
 
+**Provider update (2026-07-30, not yet implemented — logged for when we build A.0):**
+Found a working alternative to GitHub Models: `copilot-http-bridge`
+(`C:\Users\user\Documents\GitHub\bgmaruthi13\copilot-http-bridge`), a small VS
+Code extension that exposes the user's signed-in GitHub Copilot chat model over
+plain HTTP (`POST /ask {"prompt": "..."}` → `{"reply": "..."}`) while its
+Extension Development Host window is running. Confirmed live and working
+2026-07-30 — `curl -X POST http://127.0.0.1:3939/ask -d '{"prompt": "reply with
+exactly the word: pong"}'` returned `{"reply":"pong"}`, HTTP 200. Running on
+`127.0.0.1` (not a LAN IP) is actually the right mode for this project — the
+Django dev server is on the same machine, so no network exposure is needed.
+
+Real caveats to weigh before treating this as more than a prototyping bridge:
+no authentication on the bridge itself (its own README says so — binding to a
+LAN IP instead of loopback would make it reachable by anything else on that
+network); only live while that specific VS Code window stays open on whoever's
+machine is running it, not an always-on service; a Copilot seat is licensed as
+a coding-assistant-in-an-IDE, and routing arbitrary app traffic through it
+programmatically is a different use case worth checking against license terms
+before any real usage volume; one developer's seat won't hold up under
+multi-user production traffic the way a paid API tier would.
+
+**Proposed plan (agreed with user, not yet built):** use this bridge to
+prototype A.0 cheaply — a small `core/llm_bridge.py` client (configurable base
+URL via env var, clear "bridge unreachable" error, same honest-failure pattern
+the app already uses for the embedding model path) — then wire it into **A.6**
+first (lowest-risk: on-demand, one user at a time) and **A.3** second (Smart
+Search synthesis). Prove out real value at zero cost before deciding whether
+anything needs to graduate to a paid API for reliability beyond personal
+testing.
+
 **Provider decision (user-requested research, 2026-07-24, not yet decided):**
 Azure OpenAI needs no special "AI license" beyond a normal Azure subscription plus
 an Azure OpenAI resource provisioned in-portal (regional/model access gating has
