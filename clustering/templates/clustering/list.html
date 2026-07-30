@@ -44,6 +44,7 @@
       <a class="btn btn-outline {% if engine_filter == 'all' %}btn-primary{% endif %}" href="?engine=all">Both</a>
       <a class="btn btn-outline {% if engine_filter == 'traditional_ml' %}btn-primary{% endif %}" href="?engine=traditional_ml">Traditional ML</a>
       <a class="btn btn-outline {% if engine_filter == 'generative_ai' %}btn-primary{% endif %}" href="?engine=generative_ai">Generative AI</a>
+      <a class="btn btn-outline" href="{% url 'clustering:clusters_download' %}?engine={{ engine_filter }}">Download CSV</a>
     </div>
   </div>
   <div class="card-body">

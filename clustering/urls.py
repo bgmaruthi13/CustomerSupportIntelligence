@@ -6,8 +6,10 @@ app_name = "clustering"
 
 urlpatterns = [
     path("", views.clusters_list, name="list"),
+    path("download/", views.clusters_download, name="clusters_download"),
     path("reset/<str:engine>/", views.reset_clusters, name="reset_clusters"),
     path("<int:pk>/", views.cluster_detail, name="detail"),
+    path("<int:pk>/members/download/", views.cluster_members_download, name="cluster_members_download"),
     path("<int:pk>/drill-down/", views.drill_down, name="drill_down"),
     path("explorer/", views.explorer, name="explorer"),
     path("search/", views.search, name="search"),

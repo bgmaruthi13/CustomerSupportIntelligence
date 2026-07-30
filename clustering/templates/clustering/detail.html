@@ -91,7 +91,13 @@
     </div>
 
     <div class="card">
-      <div class="card-header"><div class="card-title">Member Tickets</div><div class="card-subtitle">Top 200 by similarity</div></div>
+      <div class="card-header">
+        <div>
+          <div class="card-title">Member Tickets</div>
+          <div class="card-subtitle">Top 200 by similarity</div>
+        </div>
+        <a class="btn btn-outline" href="{% url 'clustering:cluster_members_download' cluster.id %}">Download CSV (all members)</a>
+      </div>
       <div class="card-body">
         <table class="task-table">
           <thead><tr><th>Ticket</th><th>{% sort_header "title" "Title" "members" %}</th><th>{% sort_header "similarity" "Similarity" "members" %}</th><th>{% sort_header "country" "Country" "members" %}</th><th>{% sort_header "created" "Created" "members" %}</th><th></th></tr></thead>

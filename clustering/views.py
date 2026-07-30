@@ -23,6 +23,7 @@ from clustering.pipelines import (DEFAULT_GRANULARITY, MIN_TICKETS_TO_CLUSTER,
 from clustering.settings_utils import default_settings_for
 from clustering.settings_utils import get_or_default as get_clustering_settings
 from clustering.text_utils import build_clustering_text, build_entity_stoplist
+from core.export import csv_response
 from core.models import Project
 from core.utils import apply_sort, dumps_for_script, get_current_project
 from tickets.models import MULTI_VALUE_DELIMITERS, Ticket, UploadBatch
@@ -83,6 +84,52 @@ def clusters_list(request):
         "show_country_col": qs.exclude(top_country="Unspecified").exists(),
     })
     return render(request, "clustering/list.html", context)
+
+
+@login_required
+def clusters_download(request):
+    """CSV export of Problem Clusters, respecting the same ?engine= filter the
+    list page uses. Top-level clusters only, same scope as clusters_list."""
+    project = get_current_project(request)
+    if not project:
+        return redirect("clustering:list")
+
+    engine = request.GET.get("engine", "all")
+    qs = Cluster.objects.filter(project=project, is_noise=False, parent__isnull=True)
+    if engine in ("traditional_ml", "generative_ai"):
+        qs = qs.filter(engine=engine)
+    qs = qs.order_by("-recurring_count")
+
+    rows = (
+        (c.name, c.keywords, c.get_engine_display(), c.recurring_count, f"{c.confidence:.0f}",
+         c.get_trend_display(), c.top_country, c.top_application, c.top_offering, c.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for c in qs.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Name", "Keywords", "Engine", "Recurring Count", "Confidence %", "Trend", "Top Country", "Top Application", "Top Offering", "Created At"],
+        filename=f"problem_clusters_project{project.id}",
+    )
+
+
+@login_required
+def cluster_members_download(request, pk):
+    """CSV of one cluster's member tickets — the drill-down companion to
+    clusters_download's summary-row-per-cluster export."""
+    project = get_current_project(request)
+    cluster = get_object_or_404(Cluster, id=pk, project=project)
+    members = ClusterMember.objects.filter(cluster=cluster).select_related("ticket").order_by("-similarity")
+
+    rows = (
+        (m.ticket.external_id, m.ticket.title, f"{m.similarity:.3f}", m.ticket.country, m.ticket.application,
+         m.ticket.offering, m.ticket.status, m.ticket.priority, m.ticket.queue, m.ticket.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for m in members.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Ticket ID", "Title", "Similarity", "Country", "Application", "Offering", "Status", "Priority", "Queue", "Created At"],
+        filename=f"cluster_{cluster.id}_members",
+    )
 
 
 @login_required
