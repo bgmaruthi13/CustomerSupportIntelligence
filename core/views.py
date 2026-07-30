@@ -22,6 +22,30 @@ def healthz(request):
         return JsonResponse({"status": "error", "detail": str(exc)}, status=503)
 
 
+def _build_dashboard_narrative_prompt(project, ticket_count, clusters, problem_candidates, total_quarterly_cost, cost_currency_symbol):
+    """A leadership-facing 'what's going on right now' briefing (BACKLOG,
+    user-requested wow-factor idea #1) — reads the same numbers already on
+    the dashboard (nothing extra queried) and turns them into 3-4 sentences,
+    the way an analyst would open a status update, not a data dump."""
+    lines = [
+        "You are writing a short status briefing for engineering leadership, based "
+        "ONLY on the real data below. 3-4 sentences, plain English, the way an "
+        "analyst would open a status update out loud - not a bulleted data dump, "
+        "and don't invent numbers not given here.",
+        "",
+        f"Project: {project.name}" + (f" ({project.domain})" if project.domain else ""),
+        f"Total tickets: {ticket_count}",
+        f"Active problem clusters: {len(clusters)} shown below, {problem_candidates} flagged as Problem Candidates",
+    ]
+    if total_quarterly_cost:
+        lines.append(f"Estimated cost of unaddressed problem clusters: {cost_currency_symbol}{total_quarterly_cost:,.0f}/quarter at the current rate")
+    lines.append("")
+    lines.append("Top clusters (name, recurring count, trend, confidence):")
+    for c in clusters:
+        lines.append(f"- {c.name}: {c.recurring_count} tickets, {c.get_trend_display()}, {c.confidence:.0f}% confidence")
+    return "\n".join(lines)
+
+
 @login_required
 def dashboard(request):
     project = get_current_project(request)
@@ -57,6 +81,16 @@ def dashboard(request):
         recent_total = sum(c.recent_ticket_count for c in problem_qs)
         total_quarterly_cost = estimate_quarterly_cost(recent_total, project.cost_per_ticket, COST_WINDOW_DAYS)
 
+    dashboard_narrative = None
+    if request.GET.get("narrate") == "1":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        try:
+            dashboard_narrative = ask(_build_dashboard_narrative_prompt(
+                project, project.ticket_count, clusters, problem_candidates, total_quarterly_cost, project.cost_currency_symbol,
+            ))
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a briefing: {exc}")
+
     context.update({
         "project": project,
         "ticket_count": project.ticket_count,
@@ -69,6 +103,7 @@ def dashboard(request):
         "classify_result": classify_result,
         "total_quarterly_cost": total_quarterly_cost,
         "cost_currency_symbol": project.cost_currency_symbol,
+        "dashboard_narrative": dashboard_narrative,
     })
     return render(request, "core/dashboard.html", context)
 
