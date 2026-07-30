@@ -161,7 +161,16 @@
       </div>
       <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
         <div>
-          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="summary" style="width:100%;justify-content:center">Copy Prompt for Copilot</button>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate_ai_summary">
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Generate with Copilot Bridge</button>
+          </form>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Sends this cluster's data to your local Copilot HTTP Bridge (127.0.0.1:3939) and saves the reply automatically. Needs the bridge's VS Code window running — falls back to the manual flow below if it isn't.</p>
+        </div>
+
+        <div>
+          <button type="button" class="btn btn-outline copy-prompt-btn" data-copy-key="summary" style="width:100%;justify-content:center">Copy Prompt for Copilot (manual)</button>
           <p style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5">Copies a prompt built from this cluster's data to your clipboard — nothing is sent anywhere by this app. Paste it into Copilot Desktop or VS Code Copilot Chat, then paste the response back below.</p>
           <div id="summaryCopyFallback" class="copy-fallback" style="display:none;margin-top:8px">
             <p style="font-size:11px;color:var(--red);margin-bottom:6px">Automatic copy isn't available in this browser/connection — select the text below and copy it manually (Ctrl+C / Cmd+C).</p>

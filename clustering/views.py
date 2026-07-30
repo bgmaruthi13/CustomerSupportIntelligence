@@ -297,6 +297,16 @@ def cluster_detail(request, pk):
         messages.success(request, "AI summary saved.") if cluster.ai_summary else messages.success(request, "AI summary cleared.")
         return redirect("clustering:detail", pk=cluster.id)
 
+    if request.method == "POST" and request.POST.get("action") == "generate_ai_summary":
+        from core.llm_bridge import LLMBridgeUnavailable, ask
+        try:
+            cluster.ai_summary = ask(_build_summary_prompt(cluster, members_by_similarity))[:500]
+            cluster.save(update_fields=["ai_summary"])
+            messages.success(request, "AI summary generated via the Copilot HTTP Bridge.")
+        except LLMBridgeUnavailable as exc:
+            messages.error(request, f"Couldn't generate a summary: {exc} You can still use the Copy Prompt / manual paste flow below.")
+        return redirect("clustering:detail", pk=cluster.id)
+
     if request.method == "POST" and request.POST.get("action") == "save_trend_explanation":
         cluster.ai_trend_explanation = request.POST.get("ai_trend_explanation", "").strip()
         cluster.save(update_fields=["ai_trend_explanation"])
