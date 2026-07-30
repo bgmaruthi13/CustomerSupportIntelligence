@@ -1009,6 +1009,28 @@ def global_clustering(request):
     return render(request, "clustering/global_clustering.html", context)
 
 
+@login_required
+def global_clusters_download(request):
+    """CSV export of the Global Clustering summary list — same shape as
+    clusters_download (E.1), scoped by run_by=request.user + ?engine= like
+    global_clustering itself, not by project (GlobalCluster spans projects
+    by design - see its own docstring)."""
+    engine = request.GET.get("engine", "traditional_ml")
+    qs = GlobalCluster.objects.filter(engine=engine, is_noise=False, run_by=request.user).order_by("-project_count", "-recurring_count")
+
+    rows = (
+        (c.name, c.keywords, c.get_engine_display(), c.recurring_count, f"{c.confidence:.0f}",
+         c.get_trend_display(), c.project_count, "Yes" if c.is_significant_intersection else "No",
+         c.top_country, c.top_application, c.top_offering, c.run_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for c in qs.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Name", "Keywords", "Engine", "Recurring Count", "Confidence %", "Trend", "Project Count", "Significant Intersection", "Top Country", "Top Application", "Top Offering", "Run At"],
+        filename=f"global_clusters_{engine}",
+    )
+
+
 GLOBAL_MEMBERS_SORT_FIELDS = {
     "project": "project__name",
     "title": "ticket__title",
@@ -1044,6 +1066,26 @@ def global_cluster_detail(request, pk):
         "breakdown": breakdown,
     }
     return render(request, "clustering/global_cluster_detail.html", context)
+
+
+@login_required
+def global_cluster_members_download(request, pk):
+    """CSV of one GlobalCluster's member tickets, across every project it spans -
+    the global-clustering companion to cluster_members_download (E.1). Includes
+    which project each ticket belongs to, the whole reason this model exists."""
+    cluster = get_object_or_404(GlobalCluster, id=pk, run_by=request.user)
+    members = GlobalClusterMember.objects.filter(cluster=cluster).select_related("ticket", "project").order_by("-similarity")
+
+    rows = (
+        (m.ticket.external_id, m.ticket.title, m.project.name, f"{m.similarity:.3f}",
+         m.ticket.country, m.ticket.application, m.ticket.status, m.ticket.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        for m in members.iterator()
+    )
+    return csv_response(
+        rows=rows,
+        headers=["Ticket ID", "Title", "Project", "Similarity", "Country", "Application", "Status", "Created At"],
+        filename=f"global_cluster_{cluster.id}_members",
+    )
 
 
 @login_required

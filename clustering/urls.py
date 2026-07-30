@@ -19,7 +19,9 @@ urlpatterns = [
     path("traditional-ml/", views.traditional_ml, name="traditional_ml"),
     path("generative-ai/", views.generative_ai, name="generative_ai"),
     path("global/", views.global_clustering, name="global_clustering"),
+    path("global/download/", views.global_clusters_download, name="global_clusters_download"),
     path("global/explorer/", views.global_explorer, name="global_explorer"),
     path("global/<int:pk>/", views.global_cluster_detail, name="global_cluster_detail"),
+    path("global/<int:pk>/members/download/", views.global_cluster_members_download, name="global_cluster_members_download"),
     path("settings/", views.clustering_settings, name="settings"),
 ]

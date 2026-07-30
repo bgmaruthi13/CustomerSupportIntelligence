@@ -34,7 +34,13 @@
     </div>
 
     <div class="card">
-      <div class="card-header"><div class="card-title">Member Tickets</div><div class="card-subtitle">Showing {{ members|length }} of {{ member_count }}, grouped by project</div></div>
+      <div class="card-header">
+        <div>
+          <div class="card-title">Member Tickets</div>
+          <div class="card-subtitle">Showing {{ members|length }} of {{ member_count }}, grouped by project</div>
+        </div>
+        <a class="btn btn-outline" href="{% url 'clustering:global_cluster_members_download' cluster.id %}">Download CSV (all members)</a>
+      </div>
       <div class="card-body">
         <table class="task-table">
           <thead><tr><th>{% sort_header "project" "Project" %}</th><th>{% sort_header "title" "Ticket" %}</th><th>{% sort_header "similarity" "Similarity" %}</th><th>Country</th><th>{% sort_header "created" "Date" %}</th></tr></thead>

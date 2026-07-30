@@ -118,6 +118,11 @@
 <details style="margin-bottom:20px">
   <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-secondary);padding:14px 4px">Full cluster list from this run ({{ cluster_count }})</summary>
   <div class="card" style="margin-top:12px">
+    {% if clusters %}
+    <div class="card-header" style="justify-content:flex-end">
+      <a class="btn btn-outline" href="{% url 'clustering:global_clusters_download' %}?engine={{ engine }}">Download CSV</a>
+    </div>
+    {% endif %}
     <div class="card-body">
       {% if clusters %}
       <table class="task-table">
