@@ -143,6 +143,16 @@ def switch_project(request, pk):
     return redirect(request.GET.get("next") or "dashboard")
 
 
+def platform_story(request):
+    """Public, unauthenticated 'what is this' page (user-requested leadership-
+    facing redesign) — the front door someone hits before ever logging in.
+    Distinct from how_it_works (the in-app, login-required technical
+    reference): this is the pitch, not the manual. No aspirational claims —
+    every capability named here is something actually built and verified in
+    this session, not a roadmap item."""
+    return render(request, "core/platform_story.html")
+
+
 @login_required
 def how_it_works(request):
     """Single consolidated reference page: how the platform works, its two engines,

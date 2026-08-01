@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Correlate AI — AI-Driven Problem Management</title>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body style="overflow:auto;background:var(--body-bg)">
+
+<div class="story-nav">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="logo-icon" style="width:32px;height:32px;background:linear-gradient(135deg,var(--teal),var(--violet));border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px">C</div>
+    <span style="font-size:15px;font-weight:700;color:var(--text-primary)">Correlate AI</span>
+  </div>
+  <a class="btn btn-primary" href="{% url 'login' %}">Sign In</a>
+</div>
+
+<div class="story-hero">
+  <div class="story-hero-inner">
+    <h1>Find the pattern before it becomes an outage.</h1>
+    <p class="story-tagline">Correlate AI clusters recurring support tickets and log events across your stack, explains what's actually happening in plain English, and puts a real dollar figure on what's left unaddressed — not another dashboard of tables to read yourself.</p>
+    <a class="btn" style="background:#fff;color:var(--violet);font-weight:700" href="{% url 'login' %}">Sign In to Your Workspace</a>
+  </div>
+</div>
+
+<div class="story-section">
+  <h2>What it does</h2>
+  <div class="story-section-sub">Two independent clustering engines find the recurring patterns. What's new is what happens next — the platform explains them, in your language, without you reading through the raw ticket list yourself.</div>
+  <div class="story-pillars">
+    <div class="story-pillar">
+      <div class="story-pillar-icon" style="background:var(--teal-bg);color:var(--teal)">◆</div>
+      <h3>Find the pattern</h3>
+      <p>Traditional ML (TF-IDF + HDBSCAN — explainable, fully on-prem, no per-call cost) and Generative AI (semantic embeddings — catches paraphrased tickets with zero shared keywords) run independently, so you get both a transparent statistical view and a meaning-based one.</p>
+    </div>
+    <div class="story-pillar">
+      <div class="story-pillar-icon" style="background:var(--violet-bg);color:var(--violet)">✨</div>
+      <h3>Understand it instantly</h3>
+      <p>One click turns raw cluster data into a plain-English briefing, a strategic narrative connecting your top problems, a formal ITSM Problem Record, or a causally-ordered incident story across services — see below.</p>
+    </div>
+    <div class="story-pillar">
+      <div class="story-pillar-icon" style="background:var(--blue-bg);color:var(--blue)">⛨</div>
+      <h3>Protect what shouldn't be exposed</h3>
+      <p>Every ticket upload is automatically scanned for cards, IBANs, and other sensitive patterns. The same detection scans log files at 100GB+ scale, streamed in chunks — never loaded whole into memory, never storing the raw matched value.</p>
+    </div>
+  </div>
+</div>
+
+<div class="story-ai-band">
+  <div class="story-section">
+    <h2>✨ AI-Powered Insight</h2>
+    <div class="story-section-sub">Real output from this platform, unedited — generated via a live LLM, grounded only in the actual underlying data, never a mock.</div>
+    <div class="story-ai-examples">
+      <div class="story-ai-example">
+        <div class="story-ai-label">Dashboard Briefing</div>
+        <p>"The Migration Smoke Test currently has a total of 2,578 tickets, with 8 active problem clusters identified and an additional 11 flagged as Problem Candidates..."</p>
+      </div>
+      <div class="story-ai-example">
+        <div class="story-ai-label">Cross-Cluster Strategic Narrative</div>
+        <p>"...indicates that changes or updates may be triggering intermittent failures... The presence of the 'Date / Date Picker / Dst' cluster suggests that timing issues, such as daylight saving time transitions, could exacerbate these problems..."</p>
+      </div>
+      <div class="story-ai-example">
+        <div class="story-ai-label">Formal Problem Record</div>
+        <p>"Title: Change Request Errors in Firewall Rule Updates — Business Impact: The affected users are primarily in Japan, with 80 recurring tickets... Root Cause: Hypothesis suggests..."</p>
+      </div>
+      <div class="story-ai-example">
+        <div class="story-ai-label">Cross-Source Incident Narrative</div>
+        <p>"The incident likely began with the Inventory Service experiencing a database connection pool exhaustion... which may have led to the subsequent inventory lookup timeouts in the Checkout Service..."</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="story-section">
+  <h2>Everything, at a glance</h2>
+  <div class="story-section-sub">Grounded in what's actually built and verified — not a roadmap.</div>
+  <div class="story-modules">
+    <div class="story-module">
+      <div class="story-module-group">Ticket Intelligence</div>
+      <div class="story-module-items">Traditional ML + Generative AI clustering, drill-down sub-clustering, duplicate detection, Smart Search, Smart Assign</div>
+    </div>
+    <div class="story-module">
+      <div class="story-module-group">Sensitive Data</div>
+      <div class="story-module-items">Automatic ticket-upload scanning, 100GB+ log scanning (all trigger modes), directory/NAS support</div>
+    </div>
+    <div class="story-module">
+      <div class="story-module-group">Log Analysis</div>
+      <div class="story-module-items">Unsupervised pattern discovery, cross-source correlation across tools, AI-narrated incidents</div>
+    </div>
+    <div class="story-module">
+      <div class="story-module-group">Management Reporting</div>
+      <div class="story-module-items">Cost-per-ticket dollar impact, statistically-tested trend labels, exportable results on every page</div>
+    </div>
+  </div>
+</div>
+
+<div class="story-cta">
+  <h2>See it on your own data.</h2>
+  <a class="btn btn-primary" style="padding:12px 26px;font-size:14px" href="{% url 'login' %}">Sign In to Your Workspace</a>
+</div>
+
+<div class="story-footer">Correlate AI — AI-Driven Problem Management</div>
+
+</body>
+</html>

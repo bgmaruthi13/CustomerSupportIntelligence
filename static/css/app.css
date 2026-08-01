@@ -808,3 +808,38 @@ body {
 }
 .help-example strong { color: var(--text-primary); }
 .help-example code { background: #fff; border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11.5px; }
+
+/* ── Platform Story (public, unauthenticated pitch page) ──
+   Reuses the same teal→violet gradient the sidebar/auth logo icon already
+   uses — one recognizable visual signature, not a new palette — rather than
+   re-theming the ~90 already-working operational screens for a single
+   showcase page. */
+.story-nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; max-width: 1080px; margin: 0 auto; }
+.story-hero {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--violet) 100%);
+  color: #fff; padding: 64px 32px 72px; text-align: center;
+}
+.story-hero-inner { max-width: 780px; margin: 0 auto; }
+.story-hero h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 14px; }
+.story-hero p.story-tagline { font-size: 16px; opacity: 0.92; line-height: 1.6; margin-bottom: 28px; }
+.story-hero .btn { padding: 12px 26px; font-size: 14px; }
+.story-section { max-width: 1080px; margin: 0 auto; padding: 56px 32px; }
+.story-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.3px; }
+.story-section .story-section-sub { font-size: 13.5px; color: var(--text-secondary); margin-bottom: 32px; max-width: 640px; line-height: 1.6; }
+.story-pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.story-pillar { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 22px; }
+.story-pillar .story-pillar-icon { width: 40px; height: 40px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 19px; margin-bottom: 14px; }
+.story-pillar h3 { font-size: 14.5px; font-weight: 700; margin-bottom: 8px; }
+.story-pillar p { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
+.story-ai-band { background: var(--sidebar-bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.story-ai-examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 28px; }
+.story-ai-example { background: var(--card-bg); border: 1px solid var(--violet); border-radius: var(--radius-md); padding: 18px; }
+.story-ai-example .story-ai-label { font-size: 10.5px; font-weight: 700; color: var(--violet); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.story-ai-example p { font-size: 12.5px; color: var(--text-primary); line-height: 1.6; font-style: italic; }
+.story-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.story-module { border-left: 3px solid var(--primary); padding: 4px 0 4px 14px; }
+.story-module .story-module-group { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+.story-module .story-module-items { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
+.story-cta { text-align: center; padding: 56px 32px 72px; }
+.story-cta h2 { margin-bottom: 12px; }
+.story-footer { text-align: center; padding: 24px; font-size: 11.5px; color: var(--text-muted); border-top: 1px solid var(--border); }
