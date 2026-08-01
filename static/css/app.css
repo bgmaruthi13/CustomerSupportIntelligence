@@ -696,6 +696,33 @@ body {
 .auth-sub { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 24px; }
 .auth-demo-hint { background: var(--blue-bg); color: var(--blue); font-size: 11.5px; padding: 10px 12px; border-radius: var(--radius-md); margin-top: 16px; }
 
+/* ── Login split-panel (leadership-demo redesign F.3) ──
+   Same gradient signature as the Platform Story hero / dashboard briefing
+   hero — value prop on the left, the actual sign-in form on the right,
+   replacing the previous bare centered box. Stacks on narrow viewports
+   (brand panel becomes a compact header instead of a full side column). */
+.auth-split { min-height: 100vh; width: 100%; display: flex; }
+.auth-split-brand {
+  flex: 1 1 46%; background: linear-gradient(135deg, var(--teal) 0%, var(--violet) 100%);
+  color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: center;
+}
+.auth-split-brand-inner { max-width: 420px; margin: 0 auto; }
+.auth-split-brand h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; margin: 18px 0 12px; line-height: 1.25; }
+.auth-split-brand p.auth-split-tagline { font-size: 13.5px; opacity: 0.92; line-height: 1.6; margin-bottom: 28px; }
+.auth-split-caps { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.auth-split-caps li { display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; line-height: 1.5; opacity: 0.95; }
+.auth-split-caps li .cap-icon { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.auth-split-brand a.auth-split-learn-more { display: inline-block; margin-top: 28px; color: #fff; font-size: 12px; text-decoration: underline; opacity: 0.85; }
+.auth-split-brand a.auth-split-learn-more:hover { opacity: 1; }
+.auth-split-form-side { flex: 1 1 54%; display: flex; align-items: center; justify-content: center; background: var(--body-bg); padding: 40px; }
+@media (max-width: 780px) {
+  .auth-split { flex-direction: column; }
+  .auth-split-brand { flex: 0 0 auto; padding: 32px 28px; }
+  .auth-split-caps { display: none; }
+  .auth-split-brand h1 { font-size: 20px; margin: 12px 0 6px; }
+  .auth-split-form-side { padding: 32px 20px; }
+}
+
 /* ── Upload wizard ── */
 .wizard-steps { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
 .wizard-step { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }

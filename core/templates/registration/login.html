@@ -8,33 +8,50 @@
 <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body style="overflow:auto">
-<div class="auth-wrap">
-  <div class="auth-box">
-    <div class="auth-logo">
-      <div class="logo-text">{{ site_settings.site_name }}</div>
+<div class="auth-split">
+  <div class="auth-split-brand">
+    <div class="auth-split-brand-inner">
+      <div class="logo-icon" style="width:36px;height:36px;background:rgba(255,255,255,0.18);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px">{{ site_settings.site_name|slice:":1" }}</div>
+      <h1>Find the pattern before it becomes an outage.</h1>
+      <p class="auth-split-tagline">{{ site_settings.site_name }} clusters recurring tickets and log events, explains what's happening in plain English, and puts a real dollar figure on what's left unaddressed.</p>
+      <ul class="auth-split-caps">
+        <li><span class="cap-icon">◆</span> Two independent clustering engines — explainable statistics and semantic AI</li>
+        <li><span class="cap-icon">✨</span> AI-generated briefings, strategic narratives, and formal Problem Records</li>
+        <li><span class="cap-icon">⛨</span> Sensitive-data scanning across tickets and 100GB+ log files</li>
+      </ul>
+      <a class="auth-split-learn-more" href="{% url 'platform_story' %}">Learn more about the platform →</a>
     </div>
-    <div class="auth-title">Sign in to your workspace</div>
-    <div class="auth-sub">AI-Driven Problem Management</div>
+  </div>
 
-    {% if form.errors %}
-    <div class="form-errors">Invalid username or password.</div>
-    {% endif %}
-
-    <form method="post">
-      {% csrf_token %}
-      <div class="form-field">
-        <label for="id_username">Username</label>
-        <input type="text" name="username" id="id_username" autofocus required>
+  <div class="auth-split-form-side">
+    <div class="auth-box" style="box-shadow:none;border:1px solid var(--border)">
+      <div class="auth-logo">
+        <div class="logo-icon">{{ site_settings.site_name|slice:":1" }}</div>
+        <div class="logo-text">{{ site_settings.site_name }}</div>
       </div>
-      <div class="form-field">
-        <label for="id_password">Password</label>
-        <input type="password" name="password" id="id_password" required>
-      </div>
-      <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px">Sign In</button>
-    </form>
+      <div class="auth-title">Sign in to your workspace</div>
+      <div class="auth-sub">AI-Driven Problem Management</div>
 
-    <div class="auth-demo-hint">Demo credentials: <strong>demo</strong> / <strong>correlate123</strong></div>
+      {% if form.errors %}
+      <div class="form-errors">Invalid username or password.</div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_username">Username</label>
+          <input type="text" name="username" id="id_username" autofocus required>
+        </div>
+        <div class="form-field">
+          <label for="id_password">Password</label>
+          <input type="password" name="password" id="id_password" required>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px">Sign In</button>
+      </form>
+
+      <div class="auth-demo-hint">Demo credentials: <strong>demo</strong> / <strong>correlate123</strong></div>
+    </div>
   </div>
 </div>
 </body>
