@@ -473,6 +473,28 @@ body {
 }
 .btn-violet.btn-ai-generate { display: inline-flex; align-items: center; gap: 6px; }
 
+/* Dashboard AI briefing hero (leadership-demo redesign #3) — the flagship
+   moment gets its own visual weight instead of being one button among
+   several: the same teal→violet gradient as the sidebar logo / Platform
+   Story hero, not a new color, but bigger and first in the content flow. */
+.briefing-hero {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--violet) 100%);
+  border-radius: var(--radius-md); padding: 24px 28px; margin-bottom: 20px;
+  color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+}
+.briefing-hero h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.briefing-hero p { font-size: 12.5px; opacity: 0.92; max-width: 480px; line-height: 1.5; }
+.briefing-hero .btn { background: #fff; color: var(--violet); font-weight: 700; white-space: nowrap; }
+.briefing-hero-result {
+  background: linear-gradient(135deg, var(--teal) 0%, var(--violet) 100%);
+  border-radius: var(--radius-md); padding: 22px 26px; margin-bottom: 20px; color: #fff;
+}
+.briefing-hero-result .briefing-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.briefing-hero-result .briefing-label span:first-child { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: 0.85; }
+.briefing-hero-result .briefing-label a { color: #fff; font-size: 11.5px; text-decoration: underline; opacity: 0.85; }
+.briefing-hero-result .briefing-label a:hover { opacity: 1; }
+.briefing-hero-result p { font-size: 15px; line-height: 1.7; font-weight: 500; }
+
 /* Platform Guide "Feature Map" — tiered category cards, each tier roughly the
    order things happen in, connected by a plain down-arrow (not per-feature
    lines, which get fragile at responsive widths). */

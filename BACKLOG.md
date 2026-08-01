@@ -188,6 +188,23 @@ being downloaded and shared, unlike a browser table.
 
 ---
 
+## Theme F — Leadership-facing portal redesign (user-requested, 2026-08-01)
+
+*The visual foundation (Fluent/Azure-Portal tokens, WCAG-AA-checked colors) was
+already solid — the actual gap was that nothing told the platform's story before
+a viewer was either logged in or looking at operational data. Scoped deliberately
+to new/first-impression surfaces, not a re-theme of the ~90 already-working
+operational screens — reuses the one existing teal→violet gradient (the sidebar/
+auth logo icon) as a signature visual, not a new palette.*
+
+| # | Story | Pts | Status |
+|---|---|---|---|
+| F.1 | Public "Platform Story" page (`/about/`, no login required) — the front door before signing in, distinct from the login-required `how_it_works` technical reference. Three pillars, a real "AI-Powered Insight" section featuring unedited output from Theme A's four narrative features, and a grounded module list | 2 | **Done** — verified reachable without authentication, all CTA links route to `/login/`, gradient hero confirmed via computed styles |
+| F.2 | Dashboard AI-briefing hero treatment — the flagship "Narrate This" moment gets its own gradient hero card (before/after states) instead of being one small button among several in the header row | 1 | **Done** — verified both before/after states render correctly via the real view/template path (Django test client, LLM call mocked only because the bridge itself is externally down at verification time — confirmed via direct `curl`, not a code issue) |
+| F.3 | Login page redesign — split-panel (value prop + headline capabilities on one side, the sign-in form on the other), replacing the current bare centered box | 2 | Not started — next up |
+
+---
+
 ## Notes
 
 - None of the above is scheduled or committed — this is a menu, not a roadmap.

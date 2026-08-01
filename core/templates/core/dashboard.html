@@ -12,14 +12,24 @@
   <div style="display:flex;gap:8px">
     <a class="btn btn-teal" href="{% url 'clustering:traditional_ml' %}">Run Traditional ML</a>
     <a class="btn btn-violet" href="{% url 'clustering:generative_ai' %}">Run Generative AI</a>
-    {% if clusters %}<a class="btn btn-violet btn-ai-generate" href="?narrate=1">✨ Narrate This</a>{% endif %}
   </div>
 </div>
 
 {% if dashboard_narrative %}
-<div class="ai-generated-panel" style="margin-bottom:20px">
-  <div class="ai-generated-label">✨ Briefing generated via Copilot Bridge</div>
-  <div style="font-size:14px;color:var(--text-primary);line-height:1.7">{{ dashboard_narrative }}</div>
+<div class="briefing-hero-result">
+  <div class="briefing-label">
+    <span>✨ AI Briefing — generated via Copilot Bridge</span>
+    <a href="?narrate=1">Regenerate ↻</a>
+  </div>
+  <p>{{ dashboard_narrative }}</p>
+</div>
+{% elif clusters %}
+<div class="briefing-hero">
+  <div>
+    <h3>✨ Get an instant AI briefing</h3>
+    <p>One click reads everything on this dashboard and writes a live status update — the way an analyst would open a briefing out loud, not a table of numbers.</p>
+  </div>
+  <a class="btn" href="?narrate=1">Narrate This</a>
 </div>
 {% endif %}
 
