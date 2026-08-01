@@ -48,12 +48,13 @@ class Cluster(models.Model):
                    "Supplements the mechanical TF-IDF `name`/`keywords` with a sentence a "
                    "support manager would actually say out loud.",
     )
-    ai_trend_explanation = models.CharField(
-        max_length=500, blank=True,
+    ai_trend_explanation = models.TextField(
+        blank=True,
         help_text="AI-drafted hypothesis for *why* this cluster's trend moved the way it did "
                    "(e.g. a shared vendor, a recent change) — pasted back via the same bridge. "
                    "Supplements trend_reasoning, which only states the count/date-window basis "
-                   "for the label, not a cause.",
+                   "for the label, not a cause. TextField (was CharField(500)) since the prompt "
+                   "now explicitly asks for a detailed, quote-grounded hypothesis, not one line.",
     )
     resolution_notes = models.TextField(blank=True, help_text="Either analyst-authored or pasted back from an external AI chat (e.g. Copilot) — see resolution_source")
     resolution_source = models.CharField(max_length=20, blank=True, choices=[("manual", "Analyst-authored"), ("copilot_assisted", "AI-suggested via Copilot")])
@@ -263,11 +264,13 @@ class DuplicateCandidate(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    ai_explanation = models.CharField(
-        max_length=500, blank=True,
-        help_text="One-sentence explanation of *why* this pair looks like a duplicate beyond the "
-                   "similarity score, generated via the Copilot HTTP Bridge (BACKLOG A.5) — read-only "
-                   "reviewer aid, not saved automatically, never affects status/scoring.",
+    ai_explanation = models.TextField(
+        blank=True,
+        help_text="Explanation of *why* this pair looks like a duplicate beyond the similarity "
+                   "score, generated via the Copilot HTTP Bridge (BACKLOG A.5) — read-only reviewer "
+                   "aid, saved directly (unlike A.4's draft-then-review), never affects status/"
+                   "scoring. TextField (was CharField(500)) since the prompt now asks for a "
+                   "quote-grounded explanation, not one bare sentence.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

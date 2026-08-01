@@ -28,10 +28,12 @@ def _build_dashboard_narrative_prompt(project, ticket_count, clusters, problem_c
     the dashboard (nothing extra queried) and turns them into 3-4 sentences,
     the way an analyst would open a status update, not a data dump."""
     lines = [
-        "You are writing a short status briefing for engineering leadership, based "
-        "ONLY on the real data below. 3-4 sentences, plain English, the way an "
-        "analyst would open a status update out loud - not a bulleted data dump, "
-        "and don't invent numbers not given here.",
+        "You are writing a status briefing for engineering leadership, based ONLY on "
+        "the real data below. 5-7 sentences, plain English, the way an analyst would "
+        "open a status update out loud - not a bulleted data dump. Name the SPECIFIC "
+        "top clusters by name and cite their actual numbers (recurring count, trend) "
+        "rather than speaking in generalities, and don't invent numbers not given "
+        "here.",
         "",
         f"Project: {project.name}" + (f" ({project.domain})" if project.domain else ""),
         f"Total tickets: {ticket_count}",

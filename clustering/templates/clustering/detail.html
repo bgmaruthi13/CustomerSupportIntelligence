@@ -24,9 +24,9 @@
     </div>
     {% endif %}
     {% if cluster.ai_summary %}
-    <div class="ai-generated-panel" style="margin-top:8px;max-width:640px">
+    <div class="ai-generated-panel" style="margin-top:8px">
       <div class="ai-generated-label">✨ Generated via Copilot Bridge</div>
-      <div style="font-size:13px;color:var(--text-primary);font-style:italic">"{{ cluster.ai_summary }}"</div>
+      <div style="font-size:14px;color:#fff;font-style:italic;line-height:1.6">"{{ cluster.ai_summary }}"</div>
     </div>
     {% endif %}
   </div>
@@ -207,7 +207,7 @@
         {% if cluster.ai_trend_explanation %}
         <div class="ai-generated-panel">
           <div class="ai-generated-label">✨ Generated via Copilot Bridge</div>
-          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6">{{ cluster.ai_trend_explanation }}</div>
+          <div style="font-size:13.5px;color:#fff;white-space:pre-wrap;line-height:1.7">{{ cluster.ai_trend_explanation }}</div>
         </div>
         {% endif %}
         <div>
@@ -317,7 +317,7 @@
         {% if resolution_draft %}
         <div class="ai-generated-panel">
           <div class="ai-generated-label">✨ Draft generated via Copilot Bridge — not saved yet, review below</div>
-          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6">{{ resolution_draft }}</div>
+          <div style="font-size:13.5px;color:#fff;white-space:pre-wrap;line-height:1.7">{{ resolution_draft }}</div>
         </div>
         {% endif %}
 
@@ -365,9 +365,9 @@
       </div>
       <div class="card-body pad" style="display:flex;flex-direction:column;gap:14px">
         {% if cluster.problem_record_draft and not problem_record_draft %}
-        <div style="padding-bottom:10px;border-bottom:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Saved by {{ cluster.problem_record_added_by.username|default:"unknown" }} on {{ cluster.problem_record_added_at|date:"d M Y" }}</div>
-          <div style="font-size:12.5px;color:var(--text-primary);white-space:pre-wrap;line-height:1.6;font-family:ui-monospace,monospace">{{ cluster.problem_record_draft }}</div>
+        <div class="ai-generated-panel">
+          <div class="ai-generated-label">✨ Generated via Copilot Bridge — saved by {{ cluster.problem_record_added_by.username|default:"unknown" }} on {{ cluster.problem_record_added_at|date:"d M Y" }}</div>
+          <div style="font-size:13px;color:#fff;white-space:pre-wrap;line-height:1.7;font-family:ui-monospace,monospace">{{ cluster.problem_record_draft }}</div>
         </div>
         {% endif %}
 

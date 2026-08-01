@@ -461,21 +461,29 @@ body {
 .badge-violet { background: var(--violet-bg); color: var(--violet); }
 .badge-grey   { background: var(--neutral-hover); color: var(--text-secondary); }
 
-/* AI-generated content (BACKLOG Theme A, copilot-http-bridge) — a distinct
-   violet-tinted treatment so text that came from the LLM bridge is always
-   visually distinguishable from analyst-authored/manually-pasted text, not
-   just distinguishable by reading a label. Reuses --violet, the same color
-   already standing for "Generative AI" everywhere else in the app (badge-
-   violet, btn-violet), so this reads as consistent, not a new ad-hoc color. */
+/* AI-generated content (BACKLOG Theme A, copilot-http-bridge) — the same
+   gradient hero treatment as the dashboard briefing (F.2) / Platform Story
+   (F.1) / login page (F.3), used consistently on every single result the
+   bridge produces app-wide (user-requested, 2026-08-01: "use this style
+   everywhere... where we have connected with http bridge") — one signature
+   look for "this came from the LLM," not a lighter tint in some places and
+   the full hero elsewhere. No max-width cap — text gets the full width of
+   whatever container it's in, not artificially narrowed. */
 .ai-generated-panel {
-  background: var(--violet-bg); border: 1px solid var(--violet);
-  border-radius: var(--radius-md); padding: 12px 14px;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--violet) 100%);
+  color: #fff; border: none; border-radius: var(--radius-md); padding: 18px 22px;
+  max-width: none !important;
 }
 .ai-generated-label {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 10.5px; font-weight: 700; color: var(--violet);
-  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+  font-size: 10.5px; font-weight: 700; color: #fff; opacity: 0.85;
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px;
 }
+/* Cascading default for the body text every .ai-generated-panel wraps — each
+   call site's own inline color (now #fff, updated alongside this) still wins
+   per normal CSS rules; this is just the fallback so a future new panel
+   doesn't default to unreadable dark-on-gradient text if someone forgets. */
+.ai-generated-panel p, .ai-generated-panel > div > div { color: #fff; }
 .btn-violet.btn-ai-generate { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Dashboard AI briefing hero (leadership-demo redesign #3) — the flagship

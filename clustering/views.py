@@ -81,9 +81,12 @@ def _build_strategic_narrative_prompt(project, clusters):
         "Here are the top recurring problem clusters for an IT support project, "
         "ranked by how often they recur. Look ACROSS all of them for a connecting "
         "story - a shared system/vendor, overlapping timing, one root cause showing "
-        "up as multiple clusters - not a one-line summary of each in turn. 3-5 "
-        "sentences. If they're genuinely unrelated, say that plainly instead of "
-        "forcing a connection that isn't there.",
+        "up as multiple clusters. Write 5-7 sentences: name the SPECIFIC clusters "
+        "(by name) and keywords that support the connection you're drawing, not a "
+        "vague gesture at 'several issues' - a reader should be able to tell exactly "
+        "which clusters and which recurring terms led to your conclusion. If they're "
+        "genuinely unrelated, say that plainly instead of forcing a connection that "
+        "isn't there.",
         "",
         f"Project: {project.name}" + (f" ({project.domain})" if project.domain else ""),
         "",
@@ -360,9 +363,13 @@ def _build_trend_explanation_prompt(cluster, recent_members):
     lines += _project_context_lines(cluster)
     lines += [
         "",
-        "Based on the sample of its MOST RECENT ticket titles below, suggest a likely "
-        "reason for this trend in 1-2 sentences (e.g. a shared vendor, a recent change, "
-        "a seasonal pattern) — a hypothesis worth investigating, not a certainty.",
+        "Based on the sample of its MOST RECENT ticket titles below, write a detailed "
+        "hypothesis (3-5 sentences) for why this trend is moving the way it is — a "
+        "shared vendor, a recent change, a seasonal pattern, whatever the evidence "
+        "actually points to. Quote or reference the SPECIFIC recurring words/phrases "
+        "from the titles below that led you there, not a generic explanation that "
+        "could apply to any cluster — a hypothesis worth investigating, not a "
+        "certainty, and say so if the sample is too thin to conclude much.",
         "",
         "Most recent ticket titles:",
     ]
@@ -459,7 +466,7 @@ def cluster_detail(request, pk):
         from core.llm_bridge import LLMBridgeUnavailable, ask
         recent_members = ClusterMember.objects.filter(cluster=cluster).select_related("ticket").order_by("-ticket__created_at")[:10]
         try:
-            cluster.ai_trend_explanation = ask(_build_trend_explanation_prompt(cluster, recent_members))[:500]
+            cluster.ai_trend_explanation = ask(_build_trend_explanation_prompt(cluster, recent_members))
             cluster.save(update_fields=["ai_trend_explanation"])
             messages.success(request, "Trend explanation generated via the Copilot HTTP Bridge.")
         except LLMBridgeUnavailable as exc:
@@ -825,9 +832,12 @@ def _build_search_synthesis_prompt(query, results):
     piece of context a synthesis can draw on, when it exists."""
     lines = [
         f'A user searched "{query}" against a ticket history. Based ONLY on the '
-        "tickets below, write a short synthesized answer (2-4 sentences): what this "
-        "is typically caused by and how it's typically resolved, if the tickets "
-        "support that — say so plainly if they don't give enough to conclude anything.",
+        "tickets below, write a detailed synthesized answer (4-6 sentences): what "
+        "this is typically caused by and how it's typically resolved, if the tickets "
+        "support that. Quote specific recurring phrases from the ticket titles (and "
+        "any known resolution text) that back up your answer, not a generic "
+        "restatement of the search query — say so plainly if the results don't give "
+        "enough to conclude anything.",
         "",
         "Matching tickets (most similar first):",
     ]
@@ -1136,9 +1146,10 @@ def _build_duplicate_explanation_prompt(pair):
     lines = [
         "Two IT support tickets were flagged as likely duplicates (cosine similarity "
         f"{pair.similarity:.0f}%, reported within days of each other, same reporter or "
-        "application). In ONE short sentence, explain what makes them look like the same "
-        "underlying issue - specific enough to help a reviewer decide, not just restating "
-        "the similarity score.",
+        "application). In 2-3 sentences, explain what makes them look like the same "
+        "underlying issue - quote the specific overlapping words/phrases between the "
+        "two titles below that make the case, specific enough to help a reviewer "
+        "decide, not just restating the similarity score.",
         "",
         f"Ticket A ({a.external_id}): {a.title}",
         f"Ticket B ({b.external_id}): {b.title}",
@@ -1161,7 +1172,7 @@ def duplicates(request):
             from core.llm_bridge import LLMBridgeUnavailable, ask
             pair = get_object_or_404(DuplicateCandidate, id=request.POST.get("pair_id"), ticket_a__project=project)
             try:
-                pair.ai_explanation = ask(_build_duplicate_explanation_prompt(pair))[:500]
+                pair.ai_explanation = ask(_build_duplicate_explanation_prompt(pair))
                 pair.save(update_fields=["ai_explanation"])
                 messages.success(request, "Explanation generated via the Copilot HTTP Bridge.")
             except LLMBridgeUnavailable as exc:

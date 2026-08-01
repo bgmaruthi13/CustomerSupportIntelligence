@@ -281,9 +281,11 @@ def _build_pattern_narrative_prompt(cluster):
     model's own docstring) - nothing extra to sanitize here."""
     return "\n".join([
         "Here is a recurring pattern found in a log file (source: "
-        f"'{cluster.source.name}'). In ONE short, plain-English sentence, "
-        "explain what's likely happening — not a list of keywords, the kind of "
-        "sentence an on-call engineer would say out loud.",
+        f"'{cluster.source.name}'). In 2-3 plain-English sentences, explain what's "
+        "likely happening and why it matters — reference the specific keywords/"
+        "phrase in the example line below that led you there, not a generic "
+        "restatement of the keyword list. The kind of explanation an on-call "
+        "engineer would say out loud, not a log-parsing summary.",
         "",
         f"Pattern keywords: {cluster.keywords}",
         f"Recurring count: {cluster.recurring_count} of {cluster.lines_analyzed} recent lines analyzed",
@@ -299,7 +301,7 @@ def generate_pattern_narrative(request, pk):
     if request.method != "POST":
         return redirect("logscan:patterns", pk=cluster.source_id)
     try:
-        cluster.ai_narrative = ask(_build_pattern_narrative_prompt(cluster))[:500]
+        cluster.ai_narrative = ask(_build_pattern_narrative_prompt(cluster))
         cluster.save(update_fields=["ai_narrative"])
         messages.success(request, "Narrative generated via the Copilot HTTP Bridge.")
     except LLMBridgeUnavailable as exc:
@@ -374,9 +376,12 @@ def _build_incident_narrative_prompt(group):
     lines = [
         "The patterns below were found in DIFFERENT log sources but overlapped in "
         "the same time window, suggesting one incident touching multiple systems. "
-        "In 2-4 sentences, tell the story of what likely happened, in time order - "
-        "which service showed trouble first and what it likely triggered downstream. "
-        "Say plainly if the patterns don't support a clear causal story.",
+        "In 4-6 sentences, tell the detailed story of what likely happened, in time "
+        "order - which service showed trouble first, quote the specific phrase from "
+        "its example line that shows it, and explain what it likely triggered "
+        "downstream and why. Name the actual source/service names throughout, not "
+        "'the first service' - and say plainly if the patterns don't support a "
+        "clear causal story.",
         "",
         f"Time window: {group.overlap_start:%H:%M:%S} - {group.overlap_end:%H:%M:%S} ({group.source_count} sources)",
         "",
@@ -397,7 +402,7 @@ def generate_incident_narrative(request, pk):
     if request.method != "POST":
         return redirect("logscan:correlations")
     try:
-        group.ai_incident_narrative = ask(_build_incident_narrative_prompt(group))[:1000]
+        group.ai_incident_narrative = ask(_build_incident_narrative_prompt(group))
         group.save(update_fields=["ai_incident_narrative"])
         messages.success(request, "Incident narrative generated via the Copilot HTTP Bridge.")
     except LLMBridgeUnavailable as exc:

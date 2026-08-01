@@ -228,12 +228,13 @@ class LogPatternCluster(models.Model):
     first_line_at = models.DateTimeField(null=True, blank=True)
     last_line_at = models.DateTimeField(null=True, blank=True)
 
-    ai_narrative = models.CharField(
-        max_length=500, blank=True,
-        help_text="Plain-English 'what's likely happening' sentence generated via the Copilot HTTP "
-                   "Bridge (BACKLOG A.6) — same idea as Cluster.ai_summary applied to a log pattern "
-                   "instead of a ticket cluster. Built only from keywords/example_line, both already "
-                   "redacted before saving, so nothing extra to redact here.",
+    ai_narrative = models.TextField(
+        blank=True,
+        help_text="Plain-English 'what's likely happening' explanation generated via the Copilot "
+                   "HTTP Bridge (BACKLOG A.6) — same idea as Cluster.ai_summary applied to a log "
+                   "pattern instead of a ticket cluster. Built only from keywords/example_line, both "
+                   "already redacted before saving, so nothing extra to redact here. TextField (was "
+                   "CharField(500)) since the prompt now asks for a quote-grounded explanation.",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -266,13 +267,14 @@ class LogPatternCorrelation(models.Model):
     overlap_end = models.DateTimeField()
     source_count = models.PositiveIntegerField(default=0, help_text="How many distinct LogSources contributed a cluster to this group")
 
-    ai_incident_narrative = models.CharField(
-        max_length=1000, blank=True,
+    ai_incident_narrative = models.TextField(
+        blank=True,
         help_text="'What happened' story tying this correlation group's member patterns together "
                    "across sources, generated via the Copilot HTTP Bridge (BACKLOG A.10, user-requested "
                    "leadership-demo feature) — e.g. 'Auth service degraded, cascading into checkout "
                    "failures downstream.' Built only from already-redacted example_line/keywords fields, "
-                   "nothing extra to sanitize here.",
+                   "nothing extra to sanitize here. TextField (was CharField(1000)) since the prompt "
+                   "now asks for a detailed, quote-grounded 4-6 sentence story.",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
