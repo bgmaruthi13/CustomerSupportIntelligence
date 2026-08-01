@@ -37,7 +37,9 @@
     <div class="pipeline-arrow">↓</div>
     <div class="pipeline-step"><div class="step-num" style="background:var(--amber)">6</div><div><div class="step-label">Lookup Tools</div><div class="step-desc">Smart Search (semantic search), Smart Assign (queue suggestion), and Possible Duplicates all run on demand, independent of the main clustering runs. (The Sensitive Data Report is a review of step 2's automatic scan, not something you separately run.)</div></div></div>
     <div class="pipeline-arrow">↓</div>
-    <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Capture AI-Assisted Notes</div><div class="step-desc">Build a prompt from a cluster's data, paste it into your own Microsoft Copilot chat (nothing is sent by this app), then save the response back — as a one-line AI Summary, a trend explanation, or full resolution notes.</div></div></div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--green)">7</div><div><div class="step-label">Generate AI Insight — one click, or copy/paste</div><div class="step-desc">Every "✨ Generate with Copilot Bridge" button sends a prompt built from real data on this machine to your local Copilot HTTP Bridge and saves the reply automatically — cluster summaries, trend hypotheses, resolution drafts, formal Problem Records, duplicate explanations, log pattern narratives, cross-source incident stories, cross-cluster strategic analysis, and an instant dashboard briefing. The original manual flow (copy a prompt, paste into your own Copilot chat, paste the answer back) still works everywhere as a fallback if the bridge isn't running.</div></div></div>
+    <div class="pipeline-arrow">↓</div>
+    <div class="pipeline-step"><div class="step-num" style="background:var(--blue)">8</div><div><div class="step-label">Export Anything</div><div class="step-desc">Every results page — Problem Clusters, Global Clustering, Duplicate Candidates, Log PII Alerts, Log Patterns, Cross-Source Patterns — has a Download CSV button, respecting whatever filter is currently applied.</div></div></div>
   </div>
 </div>
 
@@ -46,6 +48,15 @@
 
   <div class="card-body pad" style="padding-bottom:10px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:10px">Feature Map</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--primary)">
+        <h4 style="color:var(--primary)">Overview</h4>
+        <span class="badge badge-blue">Dashboard</span>
+        <span class="badge badge-blue copilot-chip">Instant AI Briefing</span>
+      </div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
 
     <div class="feature-map-tier">
       <div class="feature-map-cat" style="border-top-color:var(--primary)">
@@ -60,6 +71,7 @@
       <div class="feature-map-cat" style="border-top-color:var(--teal)">
         <h4 style="color:var(--teal)">Clustering — Traditional ML</h4>
         <span class="badge badge-teal">TF-IDF + HDBSCAN</span>
+        <span class="badge badge-teal">Statistical Trend Test</span>
       </div>
       <div class="feature-map-cat" style="border-top-color:var(--violet)">
         <h4 style="color:var(--violet)">Clustering — Generative AI</h4>
@@ -73,10 +85,14 @@
         <h4 style="color:var(--violet)">Problem Insights <span style="font-weight:400;text-transform:none;color:var(--text-muted)">+ Cross-Project</span></h4>
         <span class="badge badge-violet">Problem Clusters</span>
         <span class="badge badge-violet">Cluster Explorer</span>
+        <span class="badge badge-violet">Cost Impact</span>
         <span class="badge badge-violet copilot-chip">AI Summary</span>
         <span class="badge badge-violet copilot-chip">AI Trend Explanation</span>
-        <span class="badge badge-violet copilot-chip">Resolution Notes</span>
+        <span class="badge badge-violet copilot-chip">Resolution Draft</span>
+        <span class="badge badge-violet copilot-chip">Problem Record</span>
+        <span class="badge badge-violet copilot-chip">Strategic Narrative</span>
         <span class="badge badge-violet">Global Clustering</span>
+        <span class="badge badge-violet">Download CSV</span>
       </div>
     </div>
     <div class="feature-map-arrow">&#8595;</div>
@@ -85,6 +101,7 @@
       <div class="feature-map-cat" style="border-top-color:var(--amber)">
         <h4 style="color:var(--amber)">Lookup Tools</h4>
         <span class="badge badge-amber">Smart Search</span>
+        <span class="badge badge-amber copilot-chip">Search Synthesis</span>
         <span class="badge badge-amber">Smart Assign</span>
         <span class="badge badge-amber">Quick Triage</span>
       </div>
@@ -92,6 +109,8 @@
         <h4 style="color:var(--red)">Data Quality &amp; Compliance</h4>
         <span class="badge badge-red">Sensitive Data Report</span>
         <span class="badge badge-red">Possible Duplicates</span>
+        <span class="badge badge-red copilot-chip">Duplicate Explanation</span>
+        <span class="badge badge-red">Download CSV</span>
       </div>
     </div>
     <div class="feature-map-arrow">&#8595;</div>
@@ -103,16 +122,33 @@
         <span class="badge badge-red">Log PII Scan</span>
         <span class="badge badge-red">Log PII Alerts</span>
         <span class="badge badge-red">Pattern Discovery</span>
+        <span class="badge badge-red copilot-chip">Pattern Narrative</span>
+        <span class="badge badge-red">Cross-Source Patterns</span>
+        <span class="badge badge-red copilot-chip">Incident Narrative</span>
+        <span class="badge badge-red">Download CSV</span>
       </div>
     </div>
 
     <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--text-muted)">
       <span class="badge badge-grey copilot-chip">dashed</span>
-      = uses the Copilot copy/paste bridge (build a prompt, paste into your own Copilot chat, paste the answer back) — no server-side LLM call. Workspace (Projects) wraps around all of it, cutting across every category, including Log Monitoring — a log source belongs to a project like everything else, even though the files it scans are external to that project's own ticket data.
+      = generated via the Copilot HTTP Bridge — a local VS Code extension exposing your signed-in GitHub Copilot chat model over plain HTTP on this machine, so a real prompt built from real data on the page gets a real generated reply back, no manual copy/paste required. Every one of these still has the original manual copy/paste flow as a fallback if the bridge isn't running. Workspace (Projects) and Download CSV both cut across every category — a log source belongs to a project like everything else, and every results table above has an export button.
     </div>
   </div>
 
   <div class="card-body pad" style="padding-bottom:6px;border-top:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Overview</div>
+  </div>
+  <div class="card-body">
+    <table class="data-table">
+      <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td class="dim">Dashboard</td><td>Ticket count, cluster counts by engine, Problem Candidates, and (once configured) estimated cost of unaddressed problems — the same numbers every AI feature below draws on.</td><td>2,578 tickets, 47 Traditional ML clusters, 11 flagged as Problem Candidates.</td></tr>
+        <tr><td class="dim">Instant AI Briefing <span class="badge badge-violet copilot-chip">Bridge</span></td><td>One click reads everything on the dashboard and writes a live 5-7 sentence status update via the Copilot Bridge — naming the specific top clusters and numbers, not a generic summary. Opt-in, never fires automatically.</td><td>"...11 flagged as Problem Candidates. The top recurring issues include 'Request / Change / New' with 80 tickets and a stable trend, alongside 'Cause / Cause Intermittent / Disconnects'..."</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-body pad" style="padding-bottom:6px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Data Management</div>
   </div>
   <div class="card-body">
@@ -135,6 +171,7 @@
       <tbody>
         <tr><td class="dim">Traditional ML <span class="badge badge-teal">A</span></td><td>TF-IDF + HDBSCAN groups tickets that share vocabulary — fast, explainable, fully on-prem.</td><td>Run on 1,200 incidents → get a "VPN Login Failures" cluster of 84 tickets at 91% confidence.</td></tr>
         <tr><td class="dim">Generative AI <span class="badge badge-violet">B</span></td><td>A local sentence-embedding model groups tickets by meaning, not just shared words.</td><td>"Batch job stuck" and "nightly process not finishing" land in the same cluster despite sharing zero keywords.</td></tr>
+        <tr><td class="dim">Statistical Trend Test</td><td>Rising/Falling isn't a fixed "±25% more/fewer" cutoff — it's an exact binomial test (the correct form of a Poisson rate-ratio test for equal-length windows) comparing a cluster's earliest and most recent thirds, so small clusters no longer get flagged as trending on single-ticket noise.</td><td>A 26-vs-14 ticket split (p=0.081) now correctly shows Stable — the old fixed-ratio rule would have called that "Rising" purely from sample-size noise.</td></tr>
       </tbody>
     </table>
   </div>
@@ -146,12 +183,17 @@
     <table class="data-table">
       <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
       <tbody>
-        <tr><td class="dim">Problem Clusters</td><td>Ranked list of recurring ticket groups, each with a confidence score, trend, and (where the data supports it) a regional breakdown.</td><td>"Email Delivery Delays" shows a Rising trend at 88% confidence and gets flagged as a Problem Candidate.</td></tr>
+        <tr><td class="dim">Problem Clusters</td><td>Ranked list of recurring ticket groups, each with a confidence score, trend, and (where the data supports it) a regional breakdown and estimated dollar cost.</td><td>"Email Delivery Delays" shows a Rising trend at 88% confidence and gets flagged as a Problem Candidate.</td></tr>
         <tr><td class="dim">Cluster Explorer</td><td>2D/3D scatter plot of every cluster's tickets, positioned by similarity.</td><td>Spot that two clusters that look separate in the list are actually close together on the map, hinting they should be reviewed together.</td></tr>
+        <tr><td class="dim">Cost Impact</td><td>Optional per-project cost-per-ticket setting turns recurring count into an honest trailing-90-day run-rate — "at the current rate, if left unaddressed" — never a speculative forecast. Left at 0, no dollar figures show anywhere.</td><td>A cluster with 30 tickets in the last 90 days at a configured $50/ticket shows "~$1,500/quarter at the current rate."</td></tr>
         <tr><td class="dim">Drill Down</td><td>Re-cluster one cluster's own tickets into finer sub-groups, from its detail page.</td><td>A broad "Login Issues" cluster of 200 tickets drills down into "VPN Timeout", "MFA Token Expired", and "Password Reset Loop".</td></tr>
-        <tr><td class="dim">AI Summary</td><td>Build a prompt from a cluster's data, paste it into your own Copilot chat, and save back a one-line plain-English headline.</td><td>Paste a cluster's data into Copilot, get back "Nightly batch jobs are timing out during scheduled runs" — replaces raw TF-IDF keywords as the cluster's headline everywhere it's listed.</td></tr>
-        <tr><td class="dim">Trend Explanation</td><td>Same bridge, asking for a hypothesis behind a Rising/Falling trend, built from the cluster's most-recent tickets. Hidden for Stable clusters, since there's no shift to explain.</td><td>Trend says "Rising" with a count comparison as its basis; the pasted-back hypothesis adds "likely tied to a recent batch scheduler change."</td></tr>
-        <tr><td class="dim">Resolution Notes</td><td>Build a prompt from a cluster's data, paste it into your own Copilot chat, and save the answer back to the cluster.</td><td>Generate a prompt for "Email Delivery Delays", paste it into Microsoft Copilot Chat, then save the suggested root cause as the cluster's resolution notes.</td></tr>
+        <tr><td class="dim">AI Summary <span class="badge badge-violet copilot-chip">Bridge</span></td><td>One click sends a prompt built from a cluster's data (plus what else is active in the same project) to the Copilot Bridge and saves back a one-line plain-English headline. Manual copy/paste still works as a fallback.</td><td>"The cluster represents a high volume of requests for updates to firewall rules for a new vendor IP." — replaces raw TF-IDF keywords as the cluster's headline everywhere it's listed.</td></tr>
+        <tr><td class="dim">Trend Explanation <span class="badge badge-violet copilot-chip">Bridge</span></td><td>Same bridge, a detailed 3-5 sentence hypothesis for a Rising/Falling trend, built from the cluster's most-recent tickets and required to quote the specific recurring words that led there. Hidden for Stable clusters.</td><td>A cluster of nightly batch-job timeouts, real generated result: "...likely stems from a recent change in the job configuration or an underlying system dependency that has become unstable..."</td></tr>
+        <tr><td class="dim">Resolution Draft <span class="badge badge-violet copilot-chip">Bridge</span></td><td>Drafts a root cause + resolution into the notes textarea for review — does NOT auto-save, the analyst still clicks Save, same as typing it by hand.</td><td>Generate a draft for "Email Delivery Delays", edit it, then save it as the cluster's resolution notes.</td></tr>
+        <tr><td class="dim">Problem Record <span class="badge badge-violet copilot-chip">Bridge</span></td><td>A formal ITSM-format document (Title / Description / Business Impact / Root Cause / Proposed Next Steps) instead of a loose paragraph — the governance artifact, not a chatbot answer. Only shown for Problem Candidates; same draft-then-review-then-save flow as Resolution.</td><td>Real generated result: correctly wrote "No specific dollar figure has been provided" instead of inventing one when cost impact wasn't configured, and hedged the root cause as "Hypothesis suggests..." rather than stating it as fact.</td></tr>
+        <tr><td class="dim">Strategic Narrative <span class="badge badge-violet copilot-chip">Bridge</span></td><td>On the Problem Clusters list, synthesizes ACROSS the top 5 Problem Candidates project-wide — a shared system/vendor, overlapping timing, one root cause showing up as several clusters — not a summary of each in turn. Says so plainly if they're genuinely unrelated.</td><td>Real generated result connected 4 of 5 top clusters into one timing/integration theme and specifically flagged a DST-transition cluster as the plausible link.</td></tr>
+        <tr><td class="dim">Global Clustering</td><td>The same clustering, run across every project you own at once — surfaces cross-project intersections a single-project view can't show.</td><td>A "VPN Login Failures" pattern shows up in 3 different projects, flagged as a significant cross-project intersection.</td></tr>
+        <tr><td class="dim">Download CSV</td><td>Every table above (Problem Clusters, per-cluster member tickets, Global Clustering) has a Download CSV button, respecting whatever engine filter is currently applied.</td><td>Download the current Problem Clusters view (filtered to Traditional ML only) as a spreadsheet for an incident report.</td></tr>
       </tbody>
     </table>
   </div>
@@ -164,10 +206,12 @@
       <thead><tr><th style="width:16%">Feature</th><th style="width:40%">What it does</th><th>Example</th></tr></thead>
       <tbody>
         <tr><td class="dim">Smart Search</td><td>Semantic search over every ticket, by a plain-English query.</td><td>Search "invoice generation errors" and get 12 ranked tickets back, including ones that never use the word "invoice".</td></tr>
+        <tr><td class="dim">Search Synthesis <span class="badge badge-amber copilot-chip">Bridge</span></td><td>Optional: turn the ranked results into one written answer — classic RAG. Reads the top 8 matches (and any known cluster resolution notes) and is required to quote specific phrases that back up the answer, not restate the query. Says plainly if the results don't give enough to conclude anything.</td><td>Search "payment timeout" → synthesis reads the 8 closest tickets' titles and known fixes, writes "typically caused by X, usually resolved by Y" instead of leaving you to read the list yourself.</td></tr>
         <tr><td class="dim">Find Similar Tickets</td><td>From any ticket in a search result, jump straight to tickets like it.</td><td>Open ticket INC0032211, click "Find Similar", and see 6 other tickets describing the same underlying issue.</td></tr>
         <tr><td class="dim">Quick Triage</td><td>Paste a new ticket's text (on the Dashboard) before it's even logged, and see the closest matching cluster.</td><td>Paste "user can't login, account locked after password reset" → instantly matched to "Account Lockout After Reset".</td></tr>
         <tr><td class="dim">Smart Assign</td><td>Suggests a support queue for untriaged tickets by nearest-neighbor vote against already-labeled ones.</td><td>An unlabeled ticket gets suggested queue "Network Support", with 4 of its 5 nearest neighbors agreeing (80%).</td></tr>
-        <tr><td class="dim">Possible Duplicates</td><td>Sweeps the whole project for near-identical ticket pairs reported close together in time.</td><td>Two tickets opened 2 hours apart by the same reporter, 96% similar text, get flagged as a possible duplicate for review.</td></tr>
+        <tr><td class="dim">Possible Duplicates</td><td>Sweeps the whole project for near-identical ticket pairs reported close together in time. Download CSV exports every pair across all statuses (pending/confirmed/dismissed), not just what's on screen.</td><td>Two tickets opened 2 hours apart by the same reporter, 96% similar text, get flagged as a possible duplicate for review.</td></tr>
+        <tr><td class="dim">Duplicate Explanation <span class="badge badge-amber copilot-chip">Bridge</span></td><td>One click explains WHY a flagged pair looks like a duplicate beyond the bare similarity %, quoting the specific overlapping words between the two titles — to help a reviewer actually decide, not just re-read a percentage.</td><td>Real generated result: "Both tickets indicate significant performance issues affecting user experience during peak load times, suggesting a potential underlying infrastructure problem."</td></tr>
       </tbody>
     </table>
   </div>
@@ -183,7 +227,10 @@
         <tr><td class="dim">Scan trigger modes</td><td><strong>On-demand</strong> (click Scan Now), <strong>Scheduled</strong> (an external Windows Task Scheduler/cron job runs periodically), or <strong>Continuous</strong> (a separate always-on service tails new bytes as they're written).</td><td>A prod log share is set to Continuous — a service watches it and scans new lines within seconds of being written, without re-reading what's already been covered.</td></tr>
         <tr><td class="dim">Log PII Scan</td><td>Streams a file in fixed-size chunks — never loading it whole into memory — so a 100GB+ file scans the same way a 100KB one does, just slower. Same detection as ticket uploads (email/card/IBAN/phone/account/address), phone detection off by default at this scale.</td><td>A 40GB application log gets scanned overnight via a scheduled job; three card numbers are found and flagged, each masked in the report.</td></tr>
         <tr><td class="dim">Log PII Alerts</td><td>Standalone report across every scanned log source, same masked-preview-only pattern as the Sensitive Data Report — plus an optional email digest per source when a scan finds anything.</td><td>A scan finds 2 email addresses in a support-tool log; a digest email goes to the configured recipients with counts by type, never the raw values.</td></tr>
-        <tr><td class="dim">Find Patterns</td><td>Unsupervised clustering over a recent slice of a log file (~5MB), grouping recurring message templates after normalizing out timestamps/IPs/IDs — the log-analysis equivalent of Problem Clusters. Path/upload sources only.</td><td>200 "connection timed out" lines with different IPs and retry counts collapse into one pattern showing "recurring: 200, confidence: 96%" instead of 200 separate near-duplicate entries.</td></tr>
+        <tr><td class="dim">Find Patterns</td><td>Unsupervised clustering over a recent slice of a log file (~5MB), grouping recurring message templates after normalizing out timestamps/IPs/IDs — the log-analysis equivalent of Problem Clusters. Path/upload sources only. Download CSV exports every pattern found.</td><td>200 "connection timed out" lines with different IPs and retry counts collapse into one pattern showing "recurring: 200, confidence: 96%" instead of 200 separate near-duplicate entries.</td></tr>
+        <tr><td class="dim">Pattern Narrative <span class="badge badge-amber copilot-chip">Bridge</span></td><td>One click turns a discovered pattern's raw stats (recurring count, confidence, example lines) into a plain-English write-up of what's actually happening and why it might matter operationally.</td><td>A recurring-pattern narrative explains a spike of repeated connection-timeout lines as a likely upstream dependency issue rather than isolated client noise.</td></tr>
+        <tr><td class="dim">Cross-Source Patterns</td><td>Correlates patterns discovered across DIFFERENT log sources that fire close together in time — the same kind of nearest-neighbor correlation Possible Duplicates does for tickets, applied to log sources instead.</td><td>A DB-connection-pool-exhaustion pattern in one service's log and a timeout pattern in a downstream service's log, both spiking in the same 10-minute window, get linked as one correlation group.</td></tr>
+        <tr><td class="dim">Incident Narrative <span class="badge badge-amber copilot-chip">Bridge</span></td><td>One click on a cross-source correlation group writes the incident story — likely root cause, blast radius across the involved services, and a plausible timeline — instead of leaving you to read each source's patterns separately and connect them yourself.</td><td>Real generated result: connected an Inventory Service DB connection-pool exhaustion pattern to a cascading wave of Checkout Service timeouts minutes later, naming the likely root cause and the downstream blast radius explicitly.</td></tr>
       </tbody>
     </table>
   </div>
@@ -232,7 +279,8 @@
       <li>Sensitive-data scanning (regex + Luhn/IBAN checksum + phone-number parsing) is assumed to catch the common, well-structured formats — card numbers, IBANs, phone numbers — not a certified DLP/PII product covering every possible sensitive-data shape.</li>
       <li>A ticket pair is assumed to be a likely duplicate only when similarity is very high (≥92%) <em>and</em> close in time (7 days) <em>and</em> shares a reporter or application — high text similarity alone is treated as insufficient, since two distinct-but-related issues can still read as similar.</li>
       <li>Queue-suggestion voting trusts whatever queue values already exist in your uploaded data as ground truth — if those source labels are inconsistent, suggestions inherit that inconsistency.</li>
-      <li>AI Summary, Trend Explanation, and Resolution capture all assume a human in the loop: this app builds the prompt, but a person pastes it into their own Copilot chat and pastes the answer back — there's no server-side call to any LLM anywhere in this build.</li>
+      <li>AI Summary, Trend Explanation, Resolution Draft, Problem Record, Strategic Narrative, Search Synthesis, Duplicate Explanation, Pattern Narrative, and Incident Narrative all assume a human in the loop for review, even though generation itself is now automatic: this app builds a prompt from real data and sends it to the Copilot HTTP Bridge — a local VS Code extension exposing the signed-in Copilot chat model over plain HTTP on this machine — and saves the reply, but nothing is treated as final until a person reads it. The original manual copy/paste flow remains as a fallback everywhere the bridge is used, for when it isn't running.</li>
+      <li>The Copilot HTTP Bridge is assumed to be a single developer's local, opt-in convenience, not a shared service — it's only reachable while that person's VS Code Extension Development Host window is open on that machine, has no authentication of its own, and is scoped to one Copilot seat's rate limits. It is not assumed to be an architecture for multi-user production AI generation as-is.</li>
       <li>Log PII Scan assumes phone-number detection is worth trading away by default at log scale — most log lines contain digits (timestamps, ports, IDs) that would trigger the phonenumbers check on nearly every line; it's an opt-in toggle per source rather than left on and slow.</li>
       <li>Find Patterns assumes a recent, bounded slice of a file (~5MB) is representative enough to be useful — it's explicitly not an exhaustive analysis of an entire 100GB file the way Log PII Scan is; that trade-off is what keeps it fast enough to run synchronously in a page request.</li>
       <li>SQLite is assumed sufficient for this scale of use (single team, moderate ticket volumes); a production multi-user rollout would need PostgreSQL, per the original proposal.</li>
@@ -244,7 +292,11 @@
   <div class="card-header"><div class="card-title">5. Known Limitations</div></div>
   <div class="card-body pad">
     <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
-      <li><strong>No server-side LLM generation anywhere.</strong> Smart Search and Smart Assign rank/vote over existing tickets (retrieval, not generation); AI Summary, Trend Explanation, and resolution notes all require a manual copy/paste into an external chat tool (e.g. Copilot) this app doesn't control.</li>
+      <li><strong>The Copilot HTTP Bridge has no authentication.</strong> Anything running on the same machine can call it — acceptable for a single developer's local dev box, not a design suited to a shared server without a network-level restriction (e.g. binding to localhost only, which it already does by default).</li>
+      <li><strong>The bridge is only live while its VS Code Extension Development Host window stays open</strong> — it is not an always-on background service. Every generate call fails fast with a clear, caught error (never a silent hang or a corrupted save) if the window is closed; the manual copy/paste fallback still works everywhere in that case.</li>
+      <li><strong>Routing application traffic through a personal Copilot seat programmatically is a different usage pattern than interactive coding assistance</strong> — worth checking against your organization's Copilot/GitHub license terms before relying on this bridge beyond a demo or single-developer convenience.</li>
+      <li><strong>Bridge output is non-deterministic and unreviewed by default for the auto-saving features</strong> (AI Summary, Trend Explanation, Pattern Narrative, Incident Narrative, Search Synthesis, Duplicate Explanation) — the same prompt can produce a differently-worded answer on a re-run, and nothing blocks a factually wrong generation from being saved automatically. Resolution Draft and Problem Record are deliberately NOT auto-saved for this reason — Generate renders a draft into a textarea, and a person must explicitly Save after reviewing it.</li>
+      <li><strong>Single Copilot seat, single-seat rate limits.</strong> Generating for many clusters back-to-back in a short window can hit Copilot's own usage limits — the bridge surfaces that as a normal generation failure, not a silent retry loop.</li>
       <li><strong>Re-running an engine replaces its previous top-level results</strong>, not merges with them — by design, so a stale run never lingers, but it means any manual edits tied to the old clusters (like resolution notes) don't automatically carry over to the new ones if the cluster boundaries shift.</li>
       <li><strong>Resolution notes are tied to a specific cluster row.</strong> If you reset or re-run a pipeline and the cluster IDs change, previously saved notes stay on the old (now-gone) cluster rather than following the "same" issue to its new cluster — this is the clearest current gap between "notes exist" and "notes are durable."</li>
       <li><strong>Queue suggestions need enough labeled data to vote from.</strong> With very few or heavily skewed existing queue values, suggestions get thin and less trustworthy — treat low-agreement suggestions as a starting guess, not a verdict.</li>
@@ -367,6 +419,11 @@
       <div class="recent-item"><div class="recent-icon" style="background:var(--green)">✓</div><div><div class="recent-name">AI Summary and Trend Explanation, same Copilot bridge</div><div class="recent-meta">Plain-English cluster headline and a "why" hypothesis for Rising/Falling trends</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--red)">✓</div><div><div class="recent-name">Log Monitoring — PII scanning at 100GB+ scale, all trigger modes, directory/NAS support</div><div class="recent-meta">Streams arbitrary log files without loading them into memory; on-demand, scheduled, and continuous-tailing all reuse the same detection as ticket uploads</div></div></div>
       <div class="recent-item"><div class="recent-icon" style="background:var(--violet)">✓</div><div><div class="recent-name">Find Patterns — unsupervised log pattern discovery</div><div class="recent-meta">Reuses the Traditional ML clustering technique on log lines instead of tickets, normalizing out timestamps/IPs/IDs first</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--amber)">✓</div><div><div class="recent-name">Copilot HTTP Bridge — real, automatic generation</div><div class="recent-meta">A local VS Code extension exposes the signed-in Copilot chat model over HTTP; nine features (AI Summary, Trend Explanation, Resolution Draft, Problem Record, Strategic Narrative, Search Synthesis, Duplicate Explanation, Pattern Narrative, Incident Narrative) send a prompt built from real data and save a real reply, one click, no manual copy/paste required — with the original manual flow kept as a fallback everywhere</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--teal)">✓</div><div><div class="recent-name">Instant AI Briefing on the Dashboard, Cost Impact on Problem Clusters</div><div class="recent-meta">A one-click narrated dashboard summary, plus an honest trailing 90-day run-rate cost estimate per cluster when a project configures a cost-per-ticket</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--blue)">✓</div><div><div class="recent-name">Statistical Trend Test replacing a fixed heuristic</div><div class="recent-meta">Rising/Falling/Stable is now decided by an exact binomial significance test (α=0.05) against the trailing period, not a fixed ±25% threshold</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--green)">✓</div><div><div class="recent-name">Download CSV on every results page</div><div class="recent-meta">Problem Clusters, cluster members, Global Clustering, Possible Duplicates, and Find Patterns all export the current filtered view</div></div></div>
+      <div class="recent-item"><div class="recent-icon" style="background:var(--red)">✓</div><div><div class="recent-name">Portal redesign and left-navigation regroup</div><div class="recent-meta">Dashboard/login/about hero treatment, unified gradient styling for every AI-generated panel app-wide, and the left nav reorganized from 9 scattered sections into 6 meaningful ones</div></div></div>
     </div>
   </div>
 
