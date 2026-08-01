@@ -130,6 +130,11 @@ body {
   color: var(--amber); background: var(--amber-bg);
   padding: 1px 6px; border-radius: 8px;
 }
+/* Lighter than .sidebar-section-label — signals a sub-grouping (e.g. Run /
+   Review / Configure within one Clustering section) without the visual
+   weight of a full new section header, so the sidebar's top-level section
+   count can stay low while still showing real structure. */
+.nav-subdivider { height: 1px; flex: 0 0 auto; background: var(--border); margin: 10px 16px 8px; }
 
 /* ── INFO TOOLTIP ("what this does") ──
    Trigger is just a small icon; the bubble itself is a single element owned by
