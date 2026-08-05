@@ -1,6 +1,11 @@
 [Unit]
 Description=Correlate AI (waitress)
 After=network.target
+# If using a local PostgreSQL server (see .env's DATABASE_URL), uncomment:
+#   After=network.target postgresql.service
+#   Wants=postgresql.service
+# Left out by default since the database may be SQLite (no server) or a
+# remote Postgres server (no local unit to depend on).
 
 [Service]
 # Replace /opt/correlate-ai below with wherever you deployed the app, and

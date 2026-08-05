@@ -1,8 +1,19 @@
 # Installing Correlate AI on Red Hat Enterprise Linux 8 & 9
 
-Linux counterpart to `install.bat` (the Windows dev quick-start). The database
-is always SQLite (a single `db.sqlite3` file) — no database server to install
-or configure.
+Linux counterpart to `install.bat` (the Windows dev quick-start). `install.sh`
+asks you interactively whether to use SQLite or PostgreSQL (via
+`../../scripts/configure_env.py`, shared with every other installer in this
+repo). See `.env.example`'s `DATABASE_URL` comment for the trade-off: SQLite
+is fine for a single-machine pilot but isn't safe for more than one
+concurrent writer.
+
+**This script never installs, initializes, or starts a PostgreSQL server.**
+Choosing Postgres only ever connects to a server you already have running —
+locally on this box (set up yourself beforehand) or remote. If you don't have
+one yet, install and start it first (e.g. `sudo dnf install -y
+postgresql-server && sudo postgresql-setup --initdb && sudo systemctl enable
+--now postgresql`, then create a role/database) before choosing Postgres at
+the prompt.
 
 > **Not yet verified against a live RHEL box** — this was written and
 > reviewed carefully (including a `bash -n` syntax check), but no RHEL 8/9
@@ -27,9 +38,12 @@ This will, in order:
    tells you how to install 3.12 alongside it, without replacing the system
    interpreter.
 3. Create a venv, install `requirements.txt`.
-4. Bootstrap `.env` (secret key, allowed hosts, debug flag) via
-   `../../scripts/configure_env.py` if one doesn't already exist — shared with
-   every other installer in this repo. Never touches an existing `.env`.
+4. **Ask SQLite or PostgreSQL** (skip the prompt with `--sqlite` or
+   `--postgres`). Postgres mode installs the `psycopg2-binary` driver and
+   prompts for an existing server's host/port/database/user/password — it
+   never touches a Postgres server itself. Bootstraps `.env` (secret key,
+   allowed hosts, `DATABASE_URL`) if one doesn't already exist; leaves an
+   existing `.env`'s database configuration alone on re-run.
 5. Run migrations and `collectstatic`.
 
 At the end it prints the dev quick-start command (`manage.py runserver`,
@@ -39,7 +53,7 @@ checking on a fresh RHEL box specifically:
 - **firewalld** — if active, you'll need to open whichever port you actually
   run the app on for another machine to reach it.
 - **SELinux** — if `Enforcing`, a permission-shaped failure with no Python
-  traceback (port bind, writing to `db.sqlite3`) is worth checking
+  traceback (port bind, Postgres connection) is worth checking
   `ausearch -m avc -ts recent` for before assuming it's an app bug.
 
 ## Verification checklist
@@ -54,28 +68,61 @@ result, not just "make sure it works":
       where that gets confirmed one way or the other.
 - [ ] **Dependencies installed cleanly** — `venv/bin/pip check` → no output
       (no broken/conflicting requirements).
+- [ ] **(Postgres mode only) the server you pointed at is actually reachable** —
+      `venv/bin/python -c "import psycopg2, os; psycopg2.connect(os.environ['DATABASE_URL'])"`
+      (with `.env` sourced into the environment first) should return with no
+      error. `install.sh` never creates the role/server/database for you — you
+      set those up yourself before running the prompt.
 - [ ] **`.env` populated correctly** —
-      `grep DJANGO_SECRET_KEY .env`: a long random string, not the
-      `django-insecure-...` placeholder.
+      `grep -E 'DJANGO_SECRET_KEY|DATABASE_URL' .env`: secret key is a long
+      random string (not the `django-insecure-...` placeholder), and
+      `DATABASE_URL` is present for Postgres mode / absent for `--sqlite`.
 - [ ] **Migrations fully applied** —
       `venv/bin/python manage.py showmigrations | grep '\[ \]'` → no output
       (an unchecked `[ ]` line means a migration didn't apply).
 - [ ] **Static files collected** — `ls staticfiles/css/app.css` → file exists.
-- [ ] **App actually serves** — start the app
+- [ ] **App actually serves AND the database is genuinely reachable** — this
+      is the one end-to-end check that catches a wrong Postgres password or
+      an unreachable DB, not just "the process started": start the app
       (`venv/bin/python manage.py runserver 0.0.0.0:8000`, or via the
       systemd service below), then from the same box:
       `curl http://127.0.0.1:8000/healthz/` → `{"status": "ok"}`.
+      `core.views.healthz` runs a real `SELECT 1` against whatever database
+      is configured, so a `{"status": "error", ...}` response here means the
+      DB connection itself is broken, not the web server.
 - [ ] **Can actually log in** — `venv/bin/python manage.py createsuperuser`,
       then sign in through a browser (or `curl -c cookies.txt` the login
-      flow) — confirms sessions/auth work, not just that migrations ran.
+      flow) — confirms sessions/auth work against whichever DB is configured,
+      not just that migrations ran.
 - [ ] **(If reachable beyond localhost) firewalld port open** — from a
       *different* machine: `curl http://<this-host>:8000/healthz/` →
       `{"status": "ok"}`. If it hangs/refuses, re-check the
       `firewall-cmd --add-port` step the script printed.
 - [ ] **(If SELinux is Enforcing) no relevant denials** —
       `sudo ausearch -m avc -ts recent` → no entries referencing this app's
-      port or the venv's Python binary. A permission-shaped failure with no
-      Python traceback is the usual symptom of one.
+      port, the venv's Python binary, or `postgresql`. A permission-shaped
+      failure with no Python traceback is the usual symptom of one.
+
+## Choosing the database
+
+`install.sh` asks interactively unless you pass `--sqlite` or `--postgres`:
+
+| | `./install.sh --postgres` | `./install.sh --sqlite` |
+|---|---|---|
+| Database | A PostgreSQL server you already have running (local or remote) — never installed/started by this script | SQLite file (`db.sqlite3`) |
+| Extra dependency | `requirements-postgres.txt` (`psycopg2-binary`), installed automatically | None |
+| Good for | Any real deployment, multiple workers/writers | Single-machine pilot, local dev |
+| `DATABASE_URL` | Prompted for (host/port/db/user/password) and written to `.env` | Left unset — SQLite is the zero-config fallback |
+
+If you don't already have a Postgres server, set one up first — e.g.
+`sudo dnf install -y postgresql-server && sudo postgresql-setup --initdb &&
+sudo systemctl enable --now postgresql`, then create a role and database —
+before running `install.sh --postgres` or answering "PostgreSQL" at the
+prompt.
+
+Switching later is just changing `DATABASE_URL` in `.env` and re-running
+`manage.py migrate` against the new target — the app code itself doesn't
+change either way (`dj_database_url` already handles both).
 
 ## Running it for real: waitress + systemd
 
@@ -133,6 +180,7 @@ one.
 sudo systemctl stop correlate-ai
 git pull   # or however you deploy new code
 venv/bin/pip install --no-cache-dir -r requirements.txt
+[ -f requirements-postgres.txt ] && venv/bin/pip install --no-cache-dir -r requirements-postgres.txt
 venv/bin/python manage.py migrate --noinput
 venv/bin/python manage.py collectstatic --noinput
 sudo systemctl start correlate-ai
@@ -142,5 +190,5 @@ sudo systemctl start correlate-ai
 
 | File | Purpose |
 |---|---|
-| `install.sh` | RHEL 8/9 install/quick-start script — venv, deps, `.env` bootstrap via `../../scripts/configure_env.py`, migrate, collectstatic. |
+| `install.sh` | RHEL 8/9 install/quick-start script — venv, deps, SQLite/Postgres prompt via `../../scripts/configure_env.py`, `.env` bootstrap, migrate, collectstatic. |
 | `correlate-ai.service` | systemd unit template for running `deploy/windows/serve.py` (waitress) as a managed service — edit the paths/user before installing. |

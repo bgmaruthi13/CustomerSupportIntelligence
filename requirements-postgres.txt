@@ -1,0 +1,7 @@
+# Postgres driver — install alongside requirements.txt to use PostgreSQL
+# instead of the zero-config SQLite default (see .env.example's DATABASE_URL).
+# Split into its own file rather than folded into requirements.txt because a
+# SQLite-only pilot deployment shouldn't need a C-extension build toolchain
+# (libpq) just to install the app. psycopg2-binary ships a bundled libpq, so
+# no system postgresql-devel package is required to install this wheel.
+psycopg2-binary==2.9.10

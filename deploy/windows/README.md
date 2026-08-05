@@ -3,17 +3,20 @@
 Production deployment: **waitress** (WSGI server) run as a **Windows Service via
 NSSM** (auto-start, auto-restart-on-crash — the supervisord equivalent), sitting
 behind **IIS + Application Request Routing** (reverse proxy + TLS termination,
-the nginx equivalent). Single worker process — this app runs on SQLite (a
-single `db.sqlite3` file), which is fine for one worker but not safe for
-multiple concurrent writers, so keep it to one waitress worker.
+the nginx equivalent). Single worker process — this app currently runs on
+SQLite, which is fine for one worker but not safe for multiple concurrent
+writers; don't scale to multiple waitress workers without first switching to
+PostgreSQL (`DATABASE_URL`, already supported — see `.env.example`).
 
 This mirrors `install.bat`'s dev setup (same venv, same `manage.py migrate` /
 `collectstatic` steps) but skips `runserver` and `DEBUG=True` — this is the
 production path, not the quick-start one.
 
-Both scripts below bootstrap `.env` the first time they run (via
-`../../scripts/configure_env.py`, shared with `install.bat` and the Red Hat
-installer) — never touches an already-existing `.env`.
+Both scripts below ask SQLite vs. PostgreSQL the first time they create a
+`.env` (via `../../scripts/configure_env.py`, shared with `install.bat` and
+the Red Hat installer — pass `-DbMode sqlite`/`-DbMode postgres` to skip the
+prompt). Postgres mode never installs or starts a server — it only connects
+to one you already have running.
 
 **Quick paths — two scripts, pick based on what you actually need:**
 
