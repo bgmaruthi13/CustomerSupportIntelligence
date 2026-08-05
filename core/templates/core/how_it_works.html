@@ -12,18 +12,67 @@
 
 <div class="card" style="margin-bottom:20px">
   <div class="card-body pad" style="display:flex;flex-wrap:wrap;gap:8px">
-    <a href="#pipeline" class="badge badge-blue" style="text-decoration:none">1. How It Works</a>
-    <a href="#features" class="badge badge-green" style="text-decoration:none">2. Every Feature, with Examples</a>
-    <a href="#engines" class="badge badge-teal" style="text-decoration:none">3. The Two Engines</a>
-    <a href="#assumptions" class="badge badge-amber" style="text-decoration:none">4. Assumptions Made</a>
-    <a href="#limitations" class="badge badge-red" style="text-decoration:none">5. Known Limitations</a>
-    <a href="#kpis" class="badge badge-violet" style="text-decoration:none">6. Live KPIs &amp; Targets</a>
-    <a href="#roadmap" class="badge badge-grey" style="text-decoration:none">7. Plan &amp; Rollout Roadmap</a>
+    <a href="#architecture" class="badge badge-grey" style="text-decoration:none">1. Architecture</a>
+    <a href="#pipeline" class="badge badge-blue" style="text-decoration:none">2. How It Works</a>
+    <a href="#features" class="badge badge-green" style="text-decoration:none">3. Every Feature, with Examples</a>
+    <a href="#engines" class="badge badge-teal" style="text-decoration:none">4. The Two Engines</a>
+    <a href="#assumptions" class="badge badge-amber" style="text-decoration:none">5. Assumptions Made</a>
+    <a href="#limitations" class="badge badge-red" style="text-decoration:none">6. Known Limitations</a>
+    <a href="#kpis" class="badge badge-violet" style="text-decoration:none">7. Live KPIs &amp; Targets</a>
+    <a href="#roadmap" class="badge badge-grey" style="text-decoration:none">8. Plan &amp; Rollout Roadmap</a>
+  </div>
+</div>
+
+<div class="card" id="architecture" style="margin-bottom:20px;scroll-margin-top:16px">
+  <div class="card-header"><div class="card-title">1. Architecture</div></div>
+  <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;padding-bottom:4px">Two independent ingestion pipelines (tickets, logs) feed one project-scoped data store. Two clustering engines and cross-source correlation turn that into scored, explainable clusters and patterns. An optional narrative layer sends already-computed data through a local LLM bridge to add plain-English write-ups on top — nothing downstream depends on it being available.</div>
+  <div class="card-body pad" style="padding-top:6px">
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--primary)"><h4 style="color:var(--primary)">Ticket exports</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">CSV / XLSX upload</p></div>
+      <div class="feature-map-cat" style="border-top-color:var(--primary)"><h4 style="color:var(--primary)">Log files</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Path or file upload</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--primary)"><h4 style="color:var(--primary)">Ticket ingestion</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Column mapping + PII scan</p></div>
+      <div class="feature-map-cat" style="border-top-color:var(--primary)"><h4 style="color:var(--primary)">Log scanner</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Pattern + PII scan</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--text-muted);flex:2"><h4 style="color:var(--text-primary)">Project-scoped data store</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Tickets · clusters · findings (SQLite / Postgres)</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--teal)"><h4 style="color:var(--teal)">Traditional ML</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Keyword clustering</p></div>
+      <div class="feature-map-cat" style="border-top-color:var(--violet)"><h4 style="color:var(--violet)">Generative AI</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Embedding clustering</p></div>
+      <div class="feature-map-cat" style="border-top-color:var(--red);border-top-style:dashed"><h4 style="color:var(--red)">Correlation</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Upcoming — not yet built</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--violet);flex:2"><h4 style="color:var(--violet)">Scored clusters &amp; patterns</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Confidence · trend · duplicate detection</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--amber)"><h4 style="color:var(--amber)">LLM bridge client</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">core/llm_bridge.py</p></div>
+      <div class="feature-map-cat" style="border-top-color:var(--amber);border-top-style:dashed"><h4 style="color:var(--amber)">Copilot bridge</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Local VS Code &rarr; GitHub Copilot</p></div>
+    </div>
+    <div class="feature-map-arrow">&#8595;</div>
+
+    <div class="feature-map-tier">
+      <div class="feature-map-cat" style="border-top-color:var(--primary);flex:2"><h4 style="color:var(--primary)">Web UI</h4><p style="font-size:11px;color:var(--text-muted);margin:6px 0 0">Analyst views clusters, narratives, alerts</p></div>
+    </div>
+
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--text-muted)">Dashed border = external process (outside this Django app, no auth) or a not-yet-built step. Everything else runs on this machine, scoped to the active project.</div>
   </div>
 </div>
 
 <div class="card" id="pipeline" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">1. How It Works — End to End</div></div>
+  <div class="card-header"><div class="card-title">2. How It Works — End to End</div></div>
   <div class="pipeline-flow">
     <div class="pipeline-step"><div class="step-num" style="background:var(--primary)">1</div><div><div class="step-label">Upload &amp; Map</div><div class="step-desc">Drop in a CSV/Excel export from any ITSM tool, match its columns to fields the app understands, choose a date format, and confirm — nothing is imported until you review the mapping.</div></div></div>
     <div class="pipeline-arrow">↓</div>
@@ -44,7 +93,7 @@
 </div>
 
 <div class="card" id="features" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">2. Every Feature, with Examples</div></div>
+  <div class="card-header"><div class="card-title">3. Every Feature, with Examples</div></div>
 
   <div class="card-body pad" style="padding-bottom:10px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:10px">Feature Map</div>
@@ -249,7 +298,7 @@
 </div>
 
 <div class="card" id="engines" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">3. The Two Clustering Engines</div></div>
+  <div class="card-header"><div class="card-title">4. The Two Clustering Engines</div></div>
   <div class="card-body pad" style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px">Both are genuinely AI — Traditional ML (statistical/classical) and Generative AI (embedding-based) are both branches of the same AI family tree. The choice is about cost, infrastructure, and semantic depth, not "AI vs. no AI." Both run <strong>live and fully on this machine today</strong> — neither is waiting on external API access.</div>
   <div class="card-body">
     <table class="data-table">
@@ -268,7 +317,7 @@
 </div>
 
 <div class="card" id="assumptions" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">4. Assumptions Made</div></div>
+  <div class="card-header"><div class="card-title">5. Assumptions Made</div></div>
   <div class="card-body pad">
     <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
       <li>Uploaded data has at least one genuinely free-text field (a title/description) — clustering quality depends directly on how descriptive that text is; a file of only short codes will cluster poorly.</li>
@@ -289,7 +338,7 @@
 </div>
 
 <div class="card" id="limitations" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">5. Known Limitations</div></div>
+  <div class="card-header"><div class="card-title">6. Known Limitations</div></div>
   <div class="card-body pad">
     <ul style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;padding-left:18px;margin:0">
       <li><strong>The Copilot HTTP Bridge has no authentication.</strong> Anything running on the same machine can call it — acceptable for a single developer's local dev box, not a design suited to a shared server without a network-level restriction (e.g. binding to localhost only, which it already does by default).</li>
@@ -312,7 +361,7 @@
 </div>
 
 <div class="card" id="kpis" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">6. Live KPIs &amp; Original Targets</div></div>
+  <div class="card-header"><div class="card-title">7. Live KPIs &amp; Original Targets</div></div>
   {% if project %}
   <div class="card-body pad">
     <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px">Live snapshot — {{ project.name }}</div>
@@ -372,7 +421,7 @@
 </div>
 
 <div class="card" id="roadmap" style="margin-bottom:20px;scroll-margin-top:16px">
-  <div class="card-header"><div class="card-title">7. Original Plan &amp; Rollout Roadmap</div></div>
+  <div class="card-header"><div class="card-title">8. Original Plan &amp; Rollout Roadmap</div></div>
   <div class="card-body pad" style="display:grid;grid-template-columns:1fr 1fr;gap:24px 32px">
     <div class="kpi-card blue"><div class="kpi-label">Timeline</div><div class="kpi-value">5.5<span style="font-size:16px;font-weight:500"> wks</span></div><div class="kpi-trend">7 phases, original proposal</div></div>
     <div class="kpi-card violet"><div class="kpi-label">Total Effort</div><div class="kpi-value">28<span style="font-size:16px;font-weight:500"> MD</span></div><div class="kpi-trend">Either approach</div></div>
