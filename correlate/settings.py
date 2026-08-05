@@ -9,7 +9,6 @@ same codebase runs unmodified in dev and production — only the .env differs.
 import os
 from pathlib import Path
 
-import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -100,21 +99,15 @@ WSGI_APPLICATION = 'correlate.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Postgres (via DATABASE_URL, e.g. postgres://user:pass@host:5432/dbname) is the
-# recommended/primary database for any real deployment — see .env.example and
-# scripts/configure_env.py, which every installer in this repo calls to ask
-# SQLite vs. Postgres and write DATABASE_URL accordingly. That script never
-# installs or starts a Postgres server itself — it only ever connects to one
-# you already have running. Falls back to a zero-config SQLite file when
-# DATABASE_URL is unset, which stays fine for local dev or a single-machine
-# pilot but isn't safe for concurrent writers.
+# SQLite only — a single file (db.sqlite3), zero configuration, no server to
+# install or manage. Fine for a single-machine deployment; not safe for
+# multiple concurrent writer processes (keep waitress/gunicorn to one worker).
 
 DATABASES = {
-    'default': dj_database_url.config(
-        env='DATABASE_URL',
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 

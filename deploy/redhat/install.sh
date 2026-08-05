@@ -2,24 +2,15 @@
 # Install / launch script for Red Hat Enterprise Linux 8 & 9 (and compatible
 # derivatives — Rocky, AlmaLinux, CentOS Stream, same `dnf` package set).
 # Linux counterpart to ../../install.bat's dev quick-start: create a venv,
-# install dependencies, set up a database, migrate, and launch.
-#
-# Database choice (SQLite or PostgreSQL) is asked interactively via
-# scripts/configure_env.py, same as every other installer in this repo. This
-# script never installs, initializes, or starts a PostgreSQL server itself —
-# Postgres mode only ever connects to a server you already have running
-# (local or remote). See "Choosing the database" below and .env.example's
-# DATABASE_URL comment.
+# install dependencies, bootstrap .env, migrate, and launch. The database is
+# always SQLite (a single db.sqlite3 file, see correlate/settings.py) — no
+# database server involved.
 #
 # Safe to re-run: every step below is idempotent (skips work already done),
 # same convention install.bat already uses.
 #
 # Usage:
-#   ./install.sh                  # asks SQLite vs. PostgreSQL interactively
-#   ./install.sh --sqlite         # skip the prompt, use the SQLite fallback
-#   ./install.sh --postgres       # skip the prompt, then ask for an existing
-#                                  # Postgres server's connection details
-#   DB_MODE=sqlite ./install.sh   # same as --sqlite, via env var
+#   ./install.sh
 #
 # NOTE: this script has been reviewed for correctness and syntax-checked
 # (bash -n), but not run against a live RHEL box in this environment — no RHEL
@@ -31,15 +22,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$APP_DIR"
-
-DB_MODE="${DB_MODE:-}"
-for arg in "$@"; do
-  case "$arg" in
-    --sqlite) DB_MODE="sqlite" ;;
-    --postgres) DB_MODE="postgres" ;;
-    *) echo "Unknown argument: $arg (expected --sqlite or --postgres)"; exit 1 ;;
-  esac
-done
 
 echo "============================================================"
 echo " Correlate AI - Install / Launch script for RHEL 8 & 9"
@@ -147,21 +129,13 @@ else
   echo "Delete the 'venv' folder and re-run this script to force a clean reinstall."
 fi
 
-# --- 3. Database choice + .env bootstrap ------------------------------------
-# scripts/configure_env.py asks SQLite vs. PostgreSQL (unless --sqlite/--postgres
-# was passed above), installs the psycopg2 driver if Postgres is chosen, and
-# writes .env — shared with every other installer in this repo instead of each
-# one carrying its own copy of this logic. It never installs, initializes, or
-# starts a PostgreSQL server; Postgres mode only ever connects to a server you
-# already have running.
-echo "[4/5] Configuring database and .env..."
-CONFIGURE_ARGS=()
-if [ -n "$DB_MODE" ]; then
-  CONFIGURE_ARGS+=(--db "$DB_MODE")
-fi
+# --- 3. .env bootstrap -------------------------------------------------------
+# scripts/configure_env.py writes .env (secret key, allowed hosts, debug flag)
+# if one doesn't already exist — shared with every other installer in this
+# repo instead of each one carrying its own copy of this logic.
+echo "[4/5] Configuring .env..."
 venv/bin/python scripts/configure_env.py \
-  --allowed-hosts "localhost,127.0.0.1" --debug True --behind-tls False \
-  "${CONFIGURE_ARGS[@]}"
+  --allowed-hosts "localhost,127.0.0.1" --debug True --behind-tls False
 echo
 
 # --- 5. Migrate + collectstatic ---------------------------------------------
@@ -191,9 +165,9 @@ if command -v firewall-cmd >/dev/null 2>&1 && sudo firewall-cmd --state >/dev/nu
 fi
 
 if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" = "Enforcing" ]; then
-  echo "[NOTE] SELinux is Enforcing. If the app fails to bind its port or reach"
-  echo "Postgres in ways that look like a permissions problem with no clear Python"
-  echo "traceback, check 'sudo ausearch -m avc -ts recent' for denials before"
-  echo "assuming it's an application bug."
+  echo "[NOTE] SELinux is Enforcing. If the app fails to bind its port or write"
+  echo "to db.sqlite3 in ways that look like a permissions problem with no clear"
+  echo "Python traceback, check 'sudo ausearch -m avc -ts recent' for denials"
+  echo "before assuming it's an application bug."
   echo
 fi

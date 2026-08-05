@@ -1,7 +1,6 @@
 [Unit]
 Description=Correlate AI (waitress)
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target
 
 [Service]
 # Replace /opt/correlate-ai below with wherever you deployed the app, and

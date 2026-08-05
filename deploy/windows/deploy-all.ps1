@@ -60,13 +60,6 @@
     Internal port waitress binds to on 127.0.0.1, reverse-proxied by IIS.
     Default 8000, matching install-service.ps1's default.
 
-.PARAMETER DbMode
-    "sqlite" or "postgres" — skips the interactive database prompt (see
-    scripts/configure_env.py) when set. Only relevant the first time this runs
-    against a fresh checkout (no .env yet); ignored if .env already has a
-    DATABASE_URL. Postgres mode connects to a server you already have running —
-    this script never installs or starts one.
-
 .EXAMPLE
     # Internal pilot, plain HTTP, DNS/hosts already pointed at this box:
     .\deploy-all.ps1 -Hostname correlate.internal.local
@@ -92,9 +85,6 @@ param(
     [string]$AppRoot,
 
     [int]$WaitressPort = 8000,
-
-    [ValidateSet("sqlite", "postgres")]
-    [string]$DbMode,
 
     [switch]$UseHttps,
 
@@ -217,13 +207,11 @@ if (-not (Test-Path $VenvPython)) {
 & $VenvPython -m pip install --no-cache-dir -r (Join-Path $AppRoot "requirements.txt")
 Write-Ok "Dependencies installed"
 
-Write-Step "Configuring database and .env"
+Write-Step "Configuring .env"
 # scripts/configure_env.py is shared with every other installer in this repo
 # (install.bat, install.sh, run-as-service.ps1) instead of each one carrying
-# its own copy of this .env-writing logic. It leaves an existing .env alone
-# unless DbMode forces a database change, and never installs/starts a
-# PostgreSQL server itself - Postgres mode only ever connects to one you
-# already have running.
+# its own copy of this .env-writing logic. Never touches an already-existing
+# .env.
 $allowedHosts = "$Hostname,127.0.0.1"
 $behindTls    = if ($UseHttps) { "True" } else { "False" }
 $csrfOrigin   = if ($UseHttps) { "https://$Hostname" } else { "" }
@@ -234,7 +222,6 @@ $configureArgs = @(
     "--behind-tls", $behindTls
 )
 if ($csrfOrigin) { $configureArgs += @("--csrf-trusted-origins", $csrfOrigin) }
-if ($DbMode) { $configureArgs += @("--db", $DbMode) }
 
 & $VenvPython (Join-Path $AppRoot "scripts\configure_env.py") @configureArgs
 if ($LASTEXITCODE -ne 0) { throw "scripts\configure_env.py failed - see output above." }
