@@ -55,7 +55,13 @@ def read_existing():
 
 def upsert_env_vars(pairs):
     """Updates/inserts the given key=value pairs, preserving every other
-    existing line (comments, blank lines, unrelated vars) untouched."""
+    existing line (comments, blank lines, unrelated vars) untouched. A value
+    of None means "unset" — the line is dropped entirely rather than written
+    as `KEY=`. This matters for DATABASE_URL specifically: dj_database_url
+    only falls back to the SQLite default when the env var is absent — a
+    present-but-empty `DATABASE_URL=` (which load_dotenv still sets into
+    os.environ) makes it return {} with no ENGINE key, crashing with
+    "settings.DATABASES is improperly configured"."""
     lines = ENV_PATH.read_text().splitlines() if ENV_PATH.exists() else []
     remaining = dict(pairs)
     out = []
@@ -64,10 +70,15 @@ def upsert_env_vars(pairs):
         if stripped and not stripped.startswith("#") and "=" in stripped:
             key = stripped.split("=", 1)[0].strip()
             if key in remaining:
-                out.append(f"{key}={remaining.pop(key)}")
+                value = remaining.pop(key)
+                if value is None:
+                    continue  # drop this line - unsets the key
+                out.append(f"{key}={value}")
                 continue
         out.append(line)
     for key, value in remaining.items():
+        if value is None:
+            continue  # nothing to unset - key wasn't present anyway
         out.append(f"{key}={value}")
     ENV_PATH.write_text("\n".join(out) + "\n")
 
@@ -176,7 +187,9 @@ def main():
             pairs["DATABASE_URL"] = database_url
             print("\nUsing PostgreSQL - make sure the server above is reachable before starting the app.")
         else:
-            pairs["DATABASE_URL"] = ""
+            # Unset, not empty - see upsert_env_vars' docstring for why an
+            # empty `DATABASE_URL=` breaks dj_database_url's SQLite fallback.
+            pairs["DATABASE_URL"] = None
             print("\nUsing SQLite (db.sqlite3) - no server needed.")
 
     if pairs:
