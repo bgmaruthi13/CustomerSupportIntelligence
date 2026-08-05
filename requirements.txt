@@ -12,6 +12,11 @@ openpyxl==3.1.5
 scipy==1.18.0
 scikit-learn==1.9.0
 hdbscan==0.8.44
+# Only ever loads a local model folder (see core/models.py's SiteSettings.
+# embedding_model_path and clustering/pipelines.py) — never a Hugging Face Hub
+# model id. correlate/settings.py additionally sets HF_HUB_OFFLINE=1 /
+# TRANSFORMERS_OFFLINE=1 so this (and its transformers/huggingface_hub
+# transitive deps) can't reach huggingface.co even by accident.
 sentence-transformers==5.6.0
 umap-learn==0.5.12
 python-dateutil==2.9.0.post0

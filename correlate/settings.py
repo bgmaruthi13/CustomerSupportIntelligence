@@ -15,6 +15,15 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+# Hard guarantee, not just a docstring promise: sentence-transformers/transformers
+# normally probe huggingface.co for model metadata/updates even when loading a
+# local path. Setting these before anything imports those libraries (both are
+# always lazy-imported inside clustering/pipelines.py's _get_embedding_model, well
+# after settings.py has already run) turns any accidental Hub call into an
+# immediate offline error instead of a silent network request.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 
 def env_bool(name, default=False):
     return os.environ.get(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
@@ -93,9 +102,12 @@ WSGI_APPLICATION = 'correlate.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 # Postgres (via DATABASE_URL, e.g. postgres://user:pass@host:5432/dbname) is the
 # recommended/primary database for any real deployment — see .env.example and
-# deploy/redhat/install.sh, which sets it up automatically. Falls back to a
-# zero-config SQLite file when DATABASE_URL is unset, which stays fine for local
-# dev or a single-machine pilot but isn't safe for concurrent writers.
+# scripts/configure_env.py, which every installer in this repo calls to ask
+# SQLite vs. Postgres and write DATABASE_URL accordingly. That script never
+# installs or starts a Postgres server itself — it only ever connects to one
+# you already have running. Falls back to a zero-config SQLite file when
+# DATABASE_URL is unset, which stays fine for local dev or a single-machine
+# pilot but isn't safe for concurrent writers.
 
 DATABASES = {
     'default': dj_database_url.config(

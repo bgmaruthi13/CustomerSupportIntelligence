@@ -2,25 +2,29 @@
 # Install / launch script for Red Hat Enterprise Linux 8 & 9 (and compatible
 # derivatives — Rocky, AlmaLinux, CentOS Stream, same `dnf` package set).
 # Linux counterpart to ../../install.bat's dev quick-start: create a venv,
-# install dependencies, set up a database, migrate, and launch. Unlike
-# install.bat, Postgres is the default database here, not SQLite — see
-# "Choosing the database" below and .env.example's DATABASE_URL comment.
+# install dependencies, set up a database, migrate, and launch.
+#
+# Database choice (SQLite or PostgreSQL) is asked interactively via
+# scripts/configure_env.py, same as every other installer in this repo. This
+# script never installs, initializes, or starts a PostgreSQL server itself —
+# Postgres mode only ever connects to a server you already have running
+# (local or remote). See "Choosing the database" below and .env.example's
+# DATABASE_URL comment.
 #
 # Safe to re-run: every step below is idempotent (skips work already done),
 # same convention install.bat already uses.
 #
 # Usage:
-#   ./install.sh              # sets up local Postgres automatically (default)
-#   ./install.sh --sqlite     # skip Postgres entirely, use the SQLite fallback
+#   ./install.sh                  # asks SQLite vs. PostgreSQL interactively
+#   ./install.sh --sqlite         # skip the prompt, use the SQLite fallback
+#   ./install.sh --postgres       # skip the prompt, then ask for an existing
+#                                  # Postgres server's connection details
 #   DB_MODE=sqlite ./install.sh   # same as --sqlite, via env var
 #
 # NOTE: this script has been reviewed for correctness and syntax-checked
 # (bash -n), but not run against a live RHEL box in this environment — no RHEL
-# 8/9 machine was available to test against. Exact package/module-stream names
-# for postgresql-server do shift between RHEL 8.x/9.x minor releases; this
-# script tries the common cases and prints a clear, specific error rather than
-# failing silently if none match your exact release. Please report back if a
-# step needs adjusting for your specific minor version.
+# 8/9 machine was available to test against. Please report back if a step
+# needs adjusting for your specific minor version.
 
 set -euo pipefail
 
@@ -28,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$APP_DIR"
 
-DB_MODE="${DB_MODE:-postgres}"
+DB_MODE="${DB_MODE:-}"
 for arg in "$@"; do
   case "$arg" in
     --sqlite) DB_MODE="sqlite" ;;
@@ -39,7 +43,6 @@ done
 
 echo "============================================================"
 echo " Correlate AI - Install / Launch script for RHEL 8 & 9"
-echo " Database mode: $DB_MODE"
 echo "============================================================"
 echo
 
@@ -144,92 +147,21 @@ else
   echo "Delete the 'venv' folder and re-run this script to force a clean reinstall."
 fi
 
-if [ "$DB_MODE" = "postgres" ]; then
-  echo
-  echo "Installing the Postgres driver (requirements-postgres.txt)..."
-  venv/bin/pip install --no-cache-dir -r requirements-postgres.txt
+# --- 3. Database choice + .env bootstrap ------------------------------------
+# scripts/configure_env.py asks SQLite vs. PostgreSQL (unless --sqlite/--postgres
+# was passed above), installs the psycopg2 driver if Postgres is chosen, and
+# writes .env — shared with every other installer in this repo instead of each
+# one carrying its own copy of this logic. It never installs, initializes, or
+# starts a PostgreSQL server; Postgres mode only ever connects to a server you
+# already have running.
+echo "[4/5] Configuring database and .env..."
+CONFIGURE_ARGS=()
+if [ -n "$DB_MODE" ]; then
+  CONFIGURE_ARGS+=(--db "$DB_MODE")
 fi
-echo
-
-# --- 3. Database setup -------------------------------------------------
-DATABASE_URL_VALUE=""
-
-if [ "$DB_MODE" = "postgres" ]; then
-  echo "[4/5] Setting up local PostgreSQL..."
-
-  if ! command -v psql >/dev/null 2>&1; then
-    echo "postgresql-server not found - installing..."
-    if ! sudo dnf install -y postgresql-server; then
-      echo "[ERROR] 'dnf install postgresql-server' failed. On some RHEL releases"
-      echo "Postgres is delivered as a versioned module stream - try:"
-      echo "  sudo dnf module list postgresql"
-      echo "  sudo dnf module enable -y postgresql:<stream>   # e.g. postgresql:15"
-      echo "  sudo dnf install -y postgresql-server"
-      echo "then re-run this script, or re-run with --sqlite to skip Postgres entirely."
-      exit 1
-    fi
-  fi
-
-  PGDATA_DEFAULT="/var/lib/pgsql/data"
-  if [ ! -f "$PGDATA_DEFAULT/PG_VERSION" ]; then
-    echo "Initializing the PostgreSQL data directory..."
-    sudo postgresql-setup --initdb
-  fi
-
-  echo "Enabling and starting the postgresql service..."
-  sudo systemctl enable --now postgresql
-
-  # Idempotent role/db creation - safe to re-run, only creates what's missing.
-  DB_NAME="correlate"
-  DB_USER="correlate_user"
-  DB_PASS="$(venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(18))')"
-
-  ROLE_EXISTS="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" || true)"
-  if [ "$ROLE_EXISTS" != "1" ]; then
-    echo "Creating database role '${DB_USER}'..."
-    sudo -u postgres psql -c "CREATE ROLE ${DB_USER} WITH LOGIN PASSWORD '${DB_PASS}';"
-  else
-    echo "Database role '${DB_USER}' already exists - leaving its password unchanged."
-    echo "If you need the DATABASE_URL password to match, reset it manually:"
-    echo "  sudo -u postgres psql -c \"ALTER ROLE ${DB_USER} WITH PASSWORD '<new password>';\""
-    DB_PASS="<unchanged - see .env's existing DATABASE_URL, or reset it as shown above>"
-  fi
-
-  DB_EXISTS="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" || true)"
-  if [ "$DB_EXISTS" != "1" ]; then
-    echo "Creating database '${DB_NAME}'..."
-    sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
-  else
-    echo "Database '${DB_NAME}' already exists - leaving it as-is."
-  fi
-
-  DATABASE_URL_VALUE="postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}"
-  echo "Postgres ready: database '${DB_NAME}', role '${DB_USER}'."
-else
-  echo "[4/5] Skipping Postgres setup (--sqlite) - using the zero-config SQLite file (db.sqlite3)."
-fi
-echo
-
-# --- 4. Local .env bootstrap (first run only) -------------------------------
-if [ ! -f ".env" ]; then
-  echo "Creating .env with local-development defaults..."
-  {
-    echo "DJANGO_DEBUG=True"
-    echo "DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1"
-    echo "DJANGO_BEHIND_TLS=False"
-    venv/bin/python -c "from django.core.management.utils import get_random_secret_key; print('DJANGO_SECRET_KEY=' + get_random_secret_key())"
-    if [ -n "$DATABASE_URL_VALUE" ]; then
-      echo "DATABASE_URL=${DATABASE_URL_VALUE}"
-    fi
-  } > ".env"
-  echo "Created .env - see .env.example for production settings (DEBUG=False etc.)"
-elif [ -n "$DATABASE_URL_VALUE" ] && ! grep -q '^DATABASE_URL=' .env; then
-  echo "DATABASE_URL=${DATABASE_URL_VALUE}" >> ".env"
-  echo "Appended the new DATABASE_URL to your existing .env."
-elif [ -n "$DATABASE_URL_VALUE" ]; then
-  echo ".env already has a DATABASE_URL set - leaving it unchanged."
-  echo "(The Postgres role/db above were still created/verified either way.)"
-fi
+venv/bin/python scripts/configure_env.py \
+  --allowed-hosts "localhost,127.0.0.1" --debug True --behind-tls False \
+  "${CONFIGURE_ARGS[@]}"
 echo
 
 # --- 5. Migrate + collectstatic ---------------------------------------------

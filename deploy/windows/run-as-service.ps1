@@ -30,6 +30,13 @@
     here; you still need to run this script elevated to register the service
     itself.
 
+.PARAMETER DbMode
+    "sqlite" or "postgres" — skips the interactive database prompt (see
+    scripts/configure_env.py) when set. Only relevant the first time this runs
+    against a fresh checkout (no .env yet); ignored if .env already has a
+    DATABASE_URL. Postgres mode connects to a server you already have running —
+    this script never installs or starts one.
+
 .EXAMPLE
     .\run-as-service.ps1
     # -> http://<this-machine's-hostname>:8000/
@@ -48,6 +55,9 @@ param(
     [string]$Hostname = $env:COMPUTERNAME,
 
     [int]$Port = 8000,
+
+    [ValidateSet("sqlite", "postgres")]
+    [string]$DbMode,
 
     [string]$ServiceName = "CorrelateAI",
 
@@ -100,22 +110,24 @@ if (-not (Test-Path $VenvPython)) {
 & $VenvPython -m pip install --no-cache-dir -r (Join-Path $AppRoot "requirements.txt")
 Write-Ok "Dependencies installed"
 
-Write-Step "Configuring .env"
-if (Test-Path $EnvFile) {
-    Write-Warn2 ".env already exists - leaving it untouched. Verify DJANGO_ALLOWED_HOSTS includes '$Hostname' yourself."
-} else {
-    Copy-Item (Join-Path $AppRoot ".env.example") $EnvFile
-    $secretKey = & $VenvPython -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-    # No reverse proxy in front here, so no TLS/CSRF-origin complications - plain
-    # HTTP end to end, DJANGO_BEHIND_TLS stays False (its default).
-    (Get-Content $EnvFile) | ForEach-Object {
-        $_ -replace '^DJANGO_SECRET_KEY=.*', "DJANGO_SECRET_KEY=$secretKey" `
-           -replace '^DJANGO_DEBUG=.*', "DJANGO_DEBUG=False" `
-           -replace '^DJANGO_ALLOWED_HOSTS=.*', "DJANGO_ALLOWED_HOSTS=$Hostname,localhost,127.0.0.1" `
-           -replace '^DJANGO_BEHIND_TLS=.*', "DJANGO_BEHIND_TLS=False"
-    } | Set-Content $EnvFile
-    Write-Ok ".env created and configured for '$Hostname'"
-}
+Write-Step "Configuring database and .env"
+# scripts/configure_env.py is shared with every other installer in this repo
+# (install.bat, install.sh, deploy-all.ps1) instead of each one carrying its
+# own copy of this .env-writing logic. It never installs/starts a PostgreSQL
+# server itself - Postgres mode only ever connects to one you already have
+# running.
+# No reverse proxy in front here, so no TLS/CSRF-origin complications - plain
+# HTTP end to end, DJANGO_BEHIND_TLS stays False (its default).
+$configureArgs = @(
+    "--allowed-hosts", "$Hostname,localhost,127.0.0.1",
+    "--debug", "False",
+    "--behind-tls", "False"
+)
+if ($DbMode) { $configureArgs += @("--db", $DbMode) }
+
+& $VenvPython (Join-Path $AppRoot "scripts\configure_env.py") @configureArgs
+if ($LASTEXITCODE -ne 0) { throw "scripts\configure_env.py failed - see output above." }
+Write-Ok ".env configured for '$Hostname'"
 
 Write-Step "migrate + collectstatic"
 & $VenvPython (Join-Path $AppRoot "manage.py") migrate --noinput

@@ -88,12 +88,13 @@ set "VENV_PY=venv\Scripts\python.exe"
 REM --- 3. Local .env bootstrap (first run only) ---------------------------
 if not exist ".env" (
     echo.
-    echo Creating .env with local-development defaults...
-    > ".env" echo DJANGO_DEBUG=True
-    >> ".env" echo DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-    >> ".env" echo DJANGO_BEHIND_TLS=False
-    "%VENV_PY%" -c "from django.core.management.utils import get_random_secret_key; print('DJANGO_SECRET_KEY=' + get_random_secret_key())" >> ".env"
-    echo Created .env - see .env.example for production settings ^(DEBUG=False etc.^)
+    "%VENV_PY%" scripts\configure_env.py
+    if errorlevel 1 (
+        echo [ERROR] .env setup failed. See the error above.
+        pause
+        exit /b 1
+    )
+    echo See .env.example for production settings ^(DEBUG=False etc.^)
 )
 
 REM --- 4. Database setup -------------------------------------------------

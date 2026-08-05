@@ -60,6 +60,13 @@
     Internal port waitress binds to on 127.0.0.1, reverse-proxied by IIS.
     Default 8000, matching install-service.ps1's default.
 
+.PARAMETER DbMode
+    "sqlite" or "postgres" — skips the interactive database prompt (see
+    scripts/configure_env.py) when set. Only relevant the first time this runs
+    against a fresh checkout (no .env yet); ignored if .env already has a
+    DATABASE_URL. Postgres mode connects to a server you already have running —
+    this script never installs or starts one.
+
 .EXAMPLE
     # Internal pilot, plain HTTP, DNS/hosts already pointed at this box:
     .\deploy-all.ps1 -Hostname correlate.internal.local
@@ -85,6 +92,9 @@ param(
     [string]$AppRoot,
 
     [int]$WaitressPort = 8000,
+
+    [ValidateSet("sqlite", "postgres")]
+    [string]$DbMode,
 
     [switch]$UseHttps,
 
@@ -207,25 +217,28 @@ if (-not (Test-Path $VenvPython)) {
 & $VenvPython -m pip install --no-cache-dir -r (Join-Path $AppRoot "requirements.txt")
 Write-Ok "Dependencies installed"
 
-Write-Step "Configuring .env"
-if (Test-Path $EnvFile) {
-    Write-Warn2 ".env already exists - leaving it untouched. Verify DJANGO_ALLOWED_HOSTS includes '$Hostname' and DJANGO_DEBUG=False yourself."
-} else {
-    Copy-Item (Join-Path $AppRoot ".env.example") $EnvFile
-    $secretKey    = & $VenvPython -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-    $allowedHosts = "$Hostname,127.0.0.1"
-    $behindTls    = if ($UseHttps) { "True" } else { "False" }
-    $csrfOrigin   = if ($UseHttps) { "https://$Hostname" } else { "" }
+Write-Step "Configuring database and .env"
+# scripts/configure_env.py is shared with every other installer in this repo
+# (install.bat, install.sh, run-as-service.ps1) instead of each one carrying
+# its own copy of this .env-writing logic. It leaves an existing .env alone
+# unless DbMode forces a database change, and never installs/starts a
+# PostgreSQL server itself - Postgres mode only ever connects to one you
+# already have running.
+$allowedHosts = "$Hostname,127.0.0.1"
+$behindTls    = if ($UseHttps) { "True" } else { "False" }
+$csrfOrigin   = if ($UseHttps) { "https://$Hostname" } else { "" }
 
-    (Get-Content $EnvFile) | ForEach-Object {
-        $_ -replace '^DJANGO_SECRET_KEY=.*', "DJANGO_SECRET_KEY=$secretKey" `
-           -replace '^DJANGO_DEBUG=.*', "DJANGO_DEBUG=False" `
-           -replace '^DJANGO_ALLOWED_HOSTS=.*', "DJANGO_ALLOWED_HOSTS=$allowedHosts" `
-           -replace '^DJANGO_CSRF_TRUSTED_ORIGINS=.*', "DJANGO_CSRF_TRUSTED_ORIGINS=$csrfOrigin" `
-           -replace '^DJANGO_BEHIND_TLS=.*', "DJANGO_BEHIND_TLS=$behindTls"
-    } | Set-Content $EnvFile
-    Write-Ok ".env created and configured for '$Hostname' (HTTPS: $($UseHttps.IsPresent))"
-}
+$configureArgs = @(
+    "--allowed-hosts", $allowedHosts,
+    "--debug", "False",
+    "--behind-tls", $behindTls
+)
+if ($csrfOrigin) { $configureArgs += @("--csrf-trusted-origins", $csrfOrigin) }
+if ($DbMode) { $configureArgs += @("--db", $DbMode) }
+
+& $VenvPython (Join-Path $AppRoot "scripts\configure_env.py") @configureArgs
+if ($LASTEXITCODE -ne 0) { throw "scripts\configure_env.py failed - see output above." }
+Write-Ok ".env configured for '$Hostname' (HTTPS: $($UseHttps.IsPresent))"
 
 Write-Step "migrate + collectstatic"
 & $VenvPython (Join-Path $AppRoot "manage.py") migrate --noinput

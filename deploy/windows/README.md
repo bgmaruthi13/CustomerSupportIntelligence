@@ -12,6 +12,12 @@ This mirrors `install.bat`'s dev setup (same venv, same `manage.py migrate` /
 `collectstatic` steps) but skips `runserver` and `DEBUG=True` — this is the
 production path, not the quick-start one.
 
+Both scripts below ask SQLite vs. PostgreSQL the first time they create a
+`.env` (via `../../scripts/configure_env.py`, shared with `install.bat` and
+the Red Hat installer — pass `-DbMode sqlite`/`-DbMode postgres` to skip the
+prompt). Postgres mode never installs or starts a server — it only connects
+to one you already have running.
+
 **Quick paths — two scripts, pick based on what you actually need:**
 
 - **`run-as-service.ps1`** — just "runs as a Windows Service, reachable at
